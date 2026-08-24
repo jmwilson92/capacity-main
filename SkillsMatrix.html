@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skills Matrix</title>
+  <meta name="description" content="Cross-training and certification matrix for the production crew.">
+  <style>
+:root {
+  --paper: #f3efe6; --paper-2: #e8e2d4; --ink: #1b1814; --ink-soft: #5c564c;
+  --rule: #d4cbb8; --card: #fffcf6; --card-2: #f7f1e6;
+  --accent: #1f6f6a; --accent-ink: #0e3d3a; --accent-soft: #d5ebe8;
+  --over: #9b2c1a; --over-soft: #f6d9d2; --tight: #9a4d0f; --tight-soft: #f6e3c8;
+  --healthy: #2d6a3a; --healthy-soft: #d7ead9; --light: #3d5c78; --light-soft: #d7e3ee;
+  --shadow: 0 1px 0 rgba(27,24,20,0.06), 0 12px 28px rgba(27,24,20,0.08);
+  --radius: 14px; --sans: "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
+body {
+  background-image: radial-gradient(circle at 0 0, rgba(31,111,106,0.07), transparent 32rem),
+    linear-gradient(180deg, #efe8d8 0%, var(--paper) 14rem);
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+#app { min-height: 100%; display: flex; flex-direction: column; }
+
+.top { position: sticky; top: 0; z-index: 20; background: rgba(243,239,230,0.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
+.top-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1.25rem 0.35rem; }
+.brand { display: flex; align-items: center; gap: 0.75rem; }
+.mark { width: 36px; height: 36px; border-radius: 10px; background: var(--light); color: #f4efe4; display: grid; place-items: center; font-weight: 700; font-size: 0.85rem; }
+.brand h1 { margin: 0; font-size: 1.05rem; font-weight: 650; }
+.brand p { margin: 0; color: var(--ink-soft); font-size: 0.78rem; }
+.top-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tabs { display: flex; gap: 0.15rem; padding: 0 1rem 0.45rem; overflow-x: auto; }
+.tab { border: 0; background: transparent; color: var(--ink-soft); padding: 0.45rem 0.75rem; border-radius: 999px; cursor: pointer; white-space: nowrap; text-decoration: none; }
+.tab:hover { background: rgba(27,24,20,0.05); color: var(--ink); }
+.tab.is-on { background: var(--accent-ink); color: #f6f1e7; }
+
+.wrap { width: min(1200px, 100%); margin: 0 auto; padding: 1.1rem 1.15rem 3rem; flex: 1; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.page-head h2 { margin: 0; font-size: 1.35rem; letter-spacing: -0.03em; }
+.page-head .lede { margin: 0.2rem 0 0; color: var(--ink-soft); }
+
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; }
+.btn { border: 1px solid var(--rule); background: var(--card); border-radius: 10px; padding: 0.42rem 0.75rem; cursor: pointer; }
+.btn:hover { border-color: #b9ae97; background: #fff; }
+.btn.primary { background: var(--accent-ink); color: #f6f1e7; border-color: var(--accent-ink); }
+.btn.small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+.btn.danger { color: var(--over); border-color: #e3b6ad; }
+
+.field { border: 1px solid var(--rule); background: #fff; border-radius: 10px; padding: 0.42rem 0.65rem; }
+
+.matrix-wrap { overflow-x: auto; }
+table.matrix { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 640px; }
+table.matrix th, table.matrix td { text-align: center; padding: 0.45rem 0.35rem; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); vertical-align: middle; }
+table.matrix th:first-child, table.matrix td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; min-width: 9rem; }
+table.matrix thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-soft); font-weight: 650; background: var(--card-2); }
+table.matrix tbody tr:hover td { background: rgba(31,111,106,0.04); }
+table.matrix tbody tr:hover td:first-child { background: #f0ebe0; }
+
+.level {
+  display: inline-flex; width: 1.7rem; height: 1.7rem; border-radius: 6px;
+  align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+  border: 1px solid transparent;
+}
+.level.l0 { background: #ece7db; color: #888; }
+.level.l1 { background: var(--light-soft); color: var(--light); }
+.level.l2 { background: var(--tight-soft); color: var(--tight); }
+.level.l3 { background: var(--healthy-soft); color: var(--healthy); }
+.level.l4 { background: var(--accent-soft); color: var(--accent-ink); }
+.level:hover { border-color: var(--ink-soft); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.75rem 0 1rem; font-size: 0.82rem; color: var(--ink-soft); }
+.legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+
+.skill-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+.skill-chip {
+  background: var(--card-2); border: 1px solid var(--rule); border-radius: 999px;
+  padding: 0.25rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.skill-chip button { border: 0; background: transparent; cursor: pointer; color: var(--over); font-weight: 700; padding: 0 0.15rem; }
+
+.form-inline { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+.toasts { position: fixed; right: 1rem; bottom: 1rem; display: flex; flex-direction: column; gap: 0.45rem; z-index: 40; }
+.toast { background: var(--accent-ink); color: #f6f1e7; padding: 0.65rem 0.8rem; border-radius: 10px; box-shadow: var(--shadow); max-width: 22rem; }
+
+.empty { padding: 2rem; text-align: center; color: var(--ink-soft); }
+  </style>
+</head>
+<body>
+  <div id="app"><p style="padding:2rem;font-family:Segoe UI,sans-serif">Loading Skills Matrix…</p></div>
+  <script>
+(function () {
+  const STORAGE_KEY = "capacity-tracker.v1";
+  // Default skills relevant to this shop (CORE / cable / test)
+  const DEFAULT_SKILLS = [
+    "Cable Assembly", "Crimping (D38999)", "Soldering", "Harness Routing",
+    "Potting / Molding", "Continuity / HiPot", "Functional Test",
+    "First Article", "IPC-A-620", "LED / PCB Install", "Kraken Assembly"
+  ];
+  const LEVELS = [
+    { v: 0, label: "None" },
+    { v: 1, label: "Trainee" },
+    { v: 2, label: "Can do with help" },
+    { v: 3, label: "Independent" },
+    { v: 4, label: "Can train others" }
+  ];
+
+  const state = {
+    data: { workCenters: [], people: [], workOrders: [], absences: [], skills: [], skillRatings: {} },
+    newSkill: ""
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function centerName(id) {
+    const c = state.data.workCenters.find(x => String(x.id) === String(id));
+    return c ? c.name : "—";
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw);
+        state.data = {
+          workCenters: p.workCenters || [],
+          people: p.people || [],
+          workOrders: p.workOrders || [],
+          absences: p.absences || [],
+          skills: p.skills && p.skills.length ? p.skills : DEFAULT_SKILLS.slice(),
+          skillRatings: p.skillRatings || {},
+          version: p.version || 1,
+          updatedAt: p.updatedAt || Date.now()
+        };
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+  function save() {
+    state.data.updatedAt = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  }
+
+  function toast(msg) {
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    (document.querySelector(".toasts") || document.body).appendChild(el);
+    setTimeout(() => el.remove(), 2200);
+  }
+
+  function ratingKey(personId, skill) {
+    return personId + "::" + skill;
+  }
+  function getLevel(personId, skill) {
+    return Number(state.data.skillRatings[ratingKey(personId, skill)] || 0);
+  }
+  function cycleLevel(personId, skill) {
+    const cur = getLevel(personId, skill);
+    const next = (cur + 1) % 5;
+    state.data.skillRatings[ratingKey(personId, skill)] = next;
+    save();
+    render();
+  }
+
+  function addSkill() {
+    const name = (state.newSkill || "").trim();
+    if (!name) return;
+    if (state.data.skills.includes(name)) {
+      toast("Already exists");
+      return;
+    }
+    state.data.skills.push(name);
+    state.newSkill = "";
+    save();
+    toast("Skill added");
+    render();
+  }
+
+  function removeSkill(skill) {
+    if (!confirm("Remove skill \"" + skill + "\" and all ratings?")) return;
+    state.data.skills = state.data.skills.filter(s => s !== skill);
+    Object.keys(state.data.skillRatings).forEach(k => {
+      if (k.endsWith("::" + skill)) delete state.data.skillRatings[k];
+    });
+    save();
+    render();
+  }
+
+  function render() {
+    const people = state.data.people.slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    const skills = state.data.skills;
+
+    document.getElementById("app").innerHTML = `
+      <div class="top">
+        <div class="top-row">
+          <div class="brand">
+            <div class="mark">SK</div>
+            <div>
+              <h1>Skills Matrix</h1>
+              <p>Cross-training · true flexible capacity</p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button class="btn" data-action="reload">Reload</button>
+          </div>
+        </div>
+        <nav class="tabs">
+          <a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>
+          <a class="tab" href="CapacityTracker.html#planning">Planning</a>
+          <a class="tab" href="WorkOrders.html">Work Orders</a>
+          <a class="tab" href="WipBoard.html">WIP Board</a>
+          <a class="tab" href="WorkInstructions.html">Work Instructions</a>
+          <a class="tab" href="Analytics.html">Analytics</a>
+          <a class="tab" href="Settings.html">Settings</a>
+        </nav>
+      </div>
+      <div class="wrap">
+        <div class="page-head">
+          <div>
+            <h2>Crew skill matrix</h2>
+            <p class="lede">Click a cell to cycle proficiency. 0 = none → 4 = can train others.</p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:1rem">
+          <div class="form-inline">
+            <input class="field" style="min-width:14rem" placeholder="New skill name…" value="${esc(state.newSkill)}" data-bind="newSkill">
+            <button class="btn primary" data-action="add-skill">Add skill</button>
+          </div>
+          <div class="skill-list">
+            ${skills.map(s => `
+              <span class="skill-chip">${esc(s)} <button data-action="remove-skill" data-skill="${esc(s)}" title="Remove">×</button></span>
+            `).join("")}
+          </div>
+          <div class="legend">
+            ${LEVELS.map(l => `<span><span class="level l${l.v}">${l.v}</span> ${l.label}</span>`).join("")}
+          </div>
+        </div>
+
+        ${!people.length ? `<div class="card empty">No people loaded. Import data from Capacity Tracker first.</div>` : `
+          <div class="card">
+            <div class="matrix-wrap">
+              <table class="matrix">
+                <thead>
+                  <tr>
+                    <th>Person / Skill</th>
+                    ${skills.map(s => `<th title="${esc(s)}">${esc(s.length > 14 ? s.slice(0,12)+"…" : s)}</th>`).join("")}
+                    <th>Avg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${people.map(p => {
+                    const levels = skills.map(s => getLevel(p.id, s));
+                    const rated = levels.filter(v => v > 0);
+                    const avg = rated.length ? (rated.reduce((a,b)=>a+b,0) / rated.length).toFixed(1) : "—";
+                    return `
+                      <tr>
+                        <td>
+                          <strong>${esc(p.name)}</strong>
+                          <div style="font-size:0.75rem;color:var(--ink-soft)">${esc(centerName(p.workCenterId))}</div>
+                        </td>
+                        ${skills.map((s, i) => `
+                          <td>
+                            <span class="level l${levels[i]}" data-action="cycle" data-person="${p.id}" data-skill="${esc(s)}" title="${LEVELS[levels[i]].label}">
+                              ${levels[i] || "·"}
+                            </span>
+                          </td>
+                        `).join("")}
+                        <td style="font-weight:650">${avg}</td>
+                      </tr>`;
+                  }).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `}
+      </div>
+      <div class="toasts"></div>
+    `;
+
+    document.querySelectorAll("[data-bind=newSkill]").forEach(el => {
+      el.addEventListener("input", e => { state.newSkill = e.target.value; });
+      el.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } });
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-action");
+    if (action === "cycle") {
+      cycleLevel(btn.getAttribute("data-person"), btn.getAttribute("data-skill"));
+    } else if (action === "add-skill") {
+      addSkill();
+    } else if (action === "remove-skill") {
+      removeSkill(btn.getAttribute("data-skill"));
+    } else if (action === "reload") {
+      load();
+      toast("Reloaded");
+      render();
+    }
+  });
+
+  if (!load()) {
+    fetch("capacity-data.json").then(r => r.json()).then(d => {
+      state.data = {
+        workCenters: d.workCenters || [],
+        people: d.people || [],
+        workOrders: d.workOrders || [],
+        absences: d.absences || [],
+        skills: DEFAULT_SKILLS.slice(),
+        skillRatings: {},
+        version: 1,
+        updatedAt: Date.now()
+      };
+      save();
+      render();
+    }).catch(() => {
+      state.data.skills = DEFAULT_SKILLS.slice();
+      render();
+    });
+  } else {
+    if (!state.data.skills || !state.data.skills.length) state.data.skills = DEFAULT_SKILLS.slice();
+    render();
+  }
+})();
+  </script>
+</body>
+</html>

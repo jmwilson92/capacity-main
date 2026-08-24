@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Downtime Logger</title>
+  <meta name="description" content="Quick Andon / downtime logging for the shop floor.">
+  <style>
+:root {
+  --paper: #f3efe6; --paper-2: #e8e2d4; --ink: #1b1814; --ink-soft: #5c564c;
+  --rule: #d4cbb8; --card: #fffcf6; --card-2: #f7f1e6;
+  --accent: #1f6f6a; --accent-ink: #0e3d3a; --accent-soft: #d5ebe8;
+  --over: #9b2c1a; --over-soft: #f6d9d2; --tight: #9a4d0f; --tight-soft: #f6e3c8;
+  --healthy: #2d6a3a; --healthy-soft: #d7ead9; --light: #3d5c78; --light-soft: #d7e3ee;
+  --shadow: 0 1px 0 rgba(27,24,20,0.06), 0 12px 28px rgba(27,24,20,0.08);
+  --radius: 14px; --sans: "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
+body {
+  background-image: radial-gradient(circle at 0 0, rgba(31,111,106,0.07), transparent 32rem),
+    linear-gradient(180deg, #efe8d8 0%, var(--paper) 14rem);
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+#app { min-height: 100%; display: flex; flex-direction: column; }
+
+.top { position: sticky; top: 0; z-index: 20; background: rgba(243,239,230,0.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
+.top-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1.25rem 0.35rem; }
+.brand { display: flex; align-items: center; gap: 0.75rem; }
+.mark { width: 36px; height: 36px; border-radius: 10px; background: var(--over); color: #f4efe4; display: grid; place-items: center; font-weight: 700; font-size: 0.85rem; }
+.brand h1 { margin: 0; font-size: 1.05rem; font-weight: 650; }
+.brand p { margin: 0; color: var(--ink-soft); font-size: 0.78rem; }
+.top-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tabs { display: flex; gap: 0.15rem; padding: 0 1rem 0.45rem; overflow-x: auto; }
+.tab { border: 0; background: transparent; color: var(--ink-soft); padding: 0.45rem 0.75rem; border-radius: 999px; cursor: pointer; white-space: nowrap; text-decoration: none; }
+.tab:hover { background: rgba(27,24,20,0.05); color: var(--ink); }
+.tab.is-on { background: var(--accent-ink); color: #f6f1e7; }
+
+.wrap { width: min(1100px, 100%); margin: 0 auto; padding: 1.1rem 1.15rem 3rem; flex: 1; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.page-head h2 { margin: 0; font-size: 1.35rem; letter-spacing: -0.03em; }
+.page-head .lede { margin: 0.2rem 0 0; color: var(--ink-soft); }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+.kpi, .card { background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow); }
+.kpi { padding: 0.85rem 1rem; }
+.kpi .label { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi .value { font-size: 1.55rem; font-weight: 650; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.kpi.over { background: linear-gradient(180deg, #fff8f5, var(--card)); }
+
+.btn { border: 1px solid var(--rule); background: var(--card); border-radius: 10px; padding: 0.42rem 0.75rem; cursor: pointer; }
+.btn:hover { border-color: #b9ae97; background: #fff; }
+.btn.primary { background: var(--accent-ink); color: #f6f1e7; border-color: var(--accent-ink); }
+.btn.danger { color: var(--over); border-color: #e3b6ad; }
+.btn.danger:hover { background: var(--over-soft); }
+.btn.small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+.btn.big { padding: 0.85rem 1.1rem; font-size: 1rem; font-weight: 650; }
+
+.field { border: 1px solid var(--rule); background: #fff; border-radius: 10px; padding: 0.42rem 0.65rem; width: 100%; }
+.pill { display: inline-flex; border-radius: 999px; padding: 0.12rem 0.55rem; font-size: 0.72rem; font-weight: 650; background: var(--card-2); }
+.pill.open { background: var(--over-soft); color: var(--over); }
+.pill.closed { background: var(--healthy-soft); color: var(--healthy); }
+
+.reason-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin: 0.75rem 0 1.2rem;
+}
+.reason-btn {
+  border: 1px solid var(--rule); background: var(--card); border-radius: 12px;
+  padding: 0.85rem 0.6rem; cursor: pointer; text-align: center; font-weight: 600; font-size: 0.9rem;
+  transition: border-color 0.1s, background 0.1s;
+}
+.reason-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.reason-btn.is-on { border-color: var(--accent-ink); background: var(--accent-ink); color: #f6f1e7; }
+
+.form-card { padding: 1.1rem; margin-bottom: 1.25rem; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.form-grid label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 650; color: var(--ink-soft); }
+.form-grid .span-2 { grid-column: 1 / -1; }
+.form-actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 0.55rem 0.45rem; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); font-weight: 650; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(31,111,106,0.04); }
+
+.empty { padding: 2rem 1rem; text-align: center; color: var(--ink-soft); }
+.toasts { position: fixed; right: 1rem; bottom: 1rem; display: flex; flex-direction: column; gap: 0.45rem; z-index: 40; }
+.toast { background: var(--accent-ink); color: #f6f1e7; padding: 0.65rem 0.8rem; border-radius: 10px; box-shadow: var(--shadow); max-width: 22rem; }
+.toast.error { background: var(--over); }
+
+@media (max-width: 700px) {
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+  </style>
+</head>
+<body>
+  <div id="app"><p style="padding:2rem;font-family:Segoe UI,sans-serif">Loading Downtime Logger…</p></div>
+  <script>
+(function () {
+  const STORAGE_KEY = "capacity-tracker.v1";
+  const REASONS = [
+    { id: "material", label: "Waiting on material" },
+    { id: "tooling", label: "Tooling / setup" },
+    { id: "machine", label: "Machine issue" },
+    { id: "engineering", label: "Engineering question" },
+    { id: "quality", label: "Quality hold" },
+    { id: "personnel", label: "Missing personnel" },
+    { id: "instruction", label: "Work instruction unclear" },
+    { id: "other", label: "Other" }
+  ];
+
+  const state = {
+    data: { workCenters: [], people: [], workOrders: [], absences: [], downtime: [] },
+    selectedReason: "material",
+    filterCenter: "",
+    filterOpenOnly: true
+  };
+
+  function uid(p) { return p + "_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3); }
+  function num(v, fb) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
+  function todayISO() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function nowTime() {
+    const d = new Date();
+    return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  }
+  function centerName(id) {
+    const c = state.data.workCenters.find(x => String(x.id) === String(id));
+    return c ? c.name : "—";
+  }
+  function personName(id) {
+    const p = state.data.people.find(x => String(x.id) === String(id));
+    return p ? p.name : "—";
+  }
+  function reasonLabel(id) {
+    const r = REASONS.find(x => x.id === id);
+    return r ? r.label : id || "—";
+  }
+  function woLabel(id) {
+    if (!id) return "";
+    const wo = (state.data.workOrders || []).find(x => String(x.id) === String(id));
+    if (!wo) return "";
+    return wo.number + (wo.title ? " — " + wo.title : "");
+  }
+  function openWorkOrders() {
+    return (state.data.workOrders || [])
+      .filter(o => o.status !== "complete")
+      .slice()
+      .sort((a, b) => String(a.number || "").localeCompare(String(b.number || "")));
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw);
+        state.data = {
+          workCenters: p.workCenters || [],
+          people: p.people || [],
+          workOrders: p.workOrders || [],
+          absences: p.absences || [],
+          downtime: p.downtime || [],
+          version: p.version || 1,
+          updatedAt: p.updatedAt || Date.now()
+        };
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+  function save() {
+    state.data.updatedAt = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  }
+
+  function toast(msg, kind) {
+    const el = document.createElement("div");
+    el.className = "toast" + (kind === "error" ? " error" : "");
+    el.textContent = msg;
+    (document.querySelector(".toasts") || document.body).appendChild(el);
+    setTimeout(() => el.remove(), 2800);
+  }
+
+  function addLog(fields) {
+    const woId = fields.workOrderId || "";
+    const wo = woId ? (state.data.workOrders || []).find(x => String(x.id) === String(woId)) : null;
+    // If work order picked and no center chosen, inherit WO center
+    let centerId = fields.workCenterId || "";
+    if (!centerId && wo && wo.workCenterId) centerId = wo.workCenterId;
+    const entry = {
+      id: uid("dt"),
+      workCenterId: centerId,
+      personId: fields.personId || "",
+      workOrderId: woId,
+      workOrderNumber: wo ? wo.number : "",
+      workOrderTitle: wo ? (wo.title || "") : "",
+      reason: fields.reason || state.selectedReason,
+      notes: fields.notes || "",
+      startDate: fields.startDate || todayISO(),
+      startTime: fields.startTime || nowTime(),
+      endDate: fields.endDate || "",
+      endTime: fields.endTime || "",
+      minutes: num(fields.minutes, 0),
+      status: fields.endDate || fields.minutes ? "closed" : "open",
+      createdAt: Date.now()
+    };
+    if (!state.data.downtime) state.data.downtime = [];
+    state.data.downtime.unshift(entry);
+    save();
+    toast(wo ? "Downtime logged on " + wo.number : "Downtime logged");
+    render();
+  }
+
+  function closeLog(id) {
+    const entry = (state.data.downtime || []).find(d => d.id === id);
+    if (!entry) return;
+    entry.status = "closed";
+    if (!entry.endDate) entry.endDate = todayISO();
+    if (!entry.endTime) entry.endTime = nowTime();
+    // rough minutes if not set
+    if (!entry.minutes && entry.startDate && entry.endDate) {
+      const s = new Date(entry.startDate + "T" + (entry.startTime || "00:00"));
+      const e = new Date(entry.endDate + "T" + (entry.endTime || "00:00"));
+      entry.minutes = Math.max(0, Math.round((e - s) / 60000));
+    }
+    save();
+    toast("Marked closed");
+    render();
+  }
+
+  function removeLog(id) {
+    if (!confirm("Delete this downtime entry?")) return;
+    state.data.downtime = (state.data.downtime || []).filter(d => d.id !== id);
+    save();
+    toast("Deleted");
+    render();
+  }
+
+  function filtered() {
+    let list = (state.data.downtime || []).slice();
+    if (state.filterCenter) list = list.filter(d => String(d.workCenterId) === String(state.filterCenter));
+    if (state.filterOpenOnly) list = list.filter(d => d.status === "open");
+    return list;
+  }
+
+  function kpis() {
+    const all = state.data.downtime || [];
+    const open = all.filter(d => d.status === "open");
+    const today = todayISO();
+    const todayClosed = all.filter(d => d.status === "closed" && (d.endDate === today || d.startDate === today));
+    const minsToday = todayClosed.reduce((s, d) => s + num(d.minutes, 0), 0);
+    return { open: open.length, todayCount: todayClosed.length, minsToday };
+  }
+
+  function render() {
+    const k = kpis();
+    const list = filtered();
+    const centers = state.data.workCenters;
+    const people = state.data.people;
+
+    document.getElementById("app").innerHTML = `
+      <div class="top">
+        <div class="top-row">
+          <div class="brand">
+            <div class="mark">DT</div>
+            <div>
+              <h1>Downtime Logger</h1>
+              <p>Andon-style stoppage capture · feeds capacity truth</p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button class="btn" data-action="reload">Reload</button>
+          </div>
+        </div>
+        <nav class="tabs">
+          <a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>
+          <a class="tab" href="CapacityTracker.html#planning">Planning</a>
+          <a class="tab" href="WorkOrders.html">Work Orders</a>
+          <a class="tab" href="WipBoard.html">WIP Board</a>
+          <a class="tab" href="WorkInstructions.html">Work Instructions</a>
+          <a class="tab" href="Analytics.html">Analytics</a>
+          <a class="tab" href="Settings.html">Settings</a>
+        </nav>
+      </div>
+      <div class="wrap">
+        <div class="page-head">
+          <div>
+            <h2>Log a stoppage</h2>
+            <p class="lede">One tap for common reasons. Keeps capacity numbers honest.</p>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi ${k.open ? "over" : ""}">
+            <div class="label">Open events</div>
+            <div class="value">${k.open}</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Closed today</div>
+            <div class="value">${k.todayCount}</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Minutes lost today</div>
+            <div class="value">${k.minsToday}</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Total logged</div>
+            <div class="value">${(state.data.downtime || []).length}</div>
+          </div>
+        </div>
+
+        <div class="card form-card">
+          <div style="font-weight:650;margin-bottom:0.35rem">Reason</div>
+          <div class="reason-grid">
+            ${REASONS.map(r => `
+              <button type="button" class="reason-btn ${state.selectedReason === r.id ? "is-on" : ""}" data-action="pick-reason" data-id="${r.id}">
+                ${esc(r.label)}
+              </button>
+            `).join("")}
+          </div>
+          <form data-form="log">
+            <div class="form-grid">
+              <label class="span-2">Work order (optional but recommended)
+                <select name="workOrderId" class="field">
+                  <option value="">— Not tied to a job —</option>
+                  ${openWorkOrders().map(wo => `
+                    <option value="${wo.id}">${esc(wo.number)}${wo.title ? " — " + esc(wo.title) : ""} (${esc(centerName(wo.workCenterId))})</option>
+                  `).join("")}
+                </select>
+              </label>
+              <label>Work center
+                <select name="workCenterId" class="field">
+                  <option value="">Select… (or inherit from job)</option>
+                  ${centers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+                </select>
+              </label>
+              <label>Reported by
+                <select name="personId" class="field">
+                  <option value="">—</option>
+                  ${people.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}
+                </select>
+              </label>
+              <label>Start date <input class="field" type="date" name="startDate" value="${todayISO()}"></label>
+              <label>Start time <input class="field" type="time" name="startTime" value="${nowTime()}"></label>
+              <label class="span-2">Notes (optional)
+                <textarea class="field" name="notes" rows="2" placeholder="What is blocked / what is needed…"></textarea>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn primary big">Log open downtime</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" style="padding:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
+            <h3 style="margin:0;font-size:0.95rem">Recent events</h3>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <select class="field" style="width:auto" data-bind="filterCenter">
+                <option value="">All centers</option>
+                ${centers.map(c => `<option value="${c.id}" ${state.filterCenter===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}
+              </select>
+              <label style="font-size:0.85rem;color:var(--ink-soft);display:flex;align-items:center;gap:0.3rem">
+                <input type="checkbox" data-bind="filterOpenOnly" ${state.filterOpenOnly?"checked":""}> Open only
+              </label>
+            </div>
+          </div>
+          ${list.length === 0 ? `<div class="empty">No matching downtime events</div>` : `
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Job</th>
+                    <th>Center</th>
+                    <th>Reason</th>
+                    <th>By</th>
+                    <th>Status</th>
+                    <th>Min</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${list.map(d => `
+                    <tr>
+                      <td>${esc(d.startDate)} ${esc(d.startTime || "")}</td>
+                      <td>${d.workOrderNumber ? `<strong>${esc(d.workOrderNumber)}</strong>${d.workOrderTitle ? `<div style="font-size:0.78rem;color:var(--ink-soft)">${esc(d.workOrderTitle)}</div>` : ""}` : (d.workOrderId ? esc(woLabel(d.workOrderId) || "—") : "—")}</td>
+                      <td>${esc(centerName(d.workCenterId))}</td>
+                      <td>${esc(reasonLabel(d.reason))}</td>
+                      <td>${esc(personName(d.personId))}</td>
+                      <td><span class="pill ${d.status}">${d.status}</span></td>
+                      <td>${d.minutes || "—"}</td>
+                      <td>
+                        ${d.status === "open" ? `<button class="btn small primary" data-action="close" data-id="${d.id}">Close</button>` : ""}
+                        <button class="btn small danger" data-action="delete" data-id="${d.id}">×</button>
+                      </td>
+                    </tr>
+                    ${d.notes ? `<tr><td colspan="8" style="color:var(--ink-soft);font-size:0.85rem;padding-top:0">${esc(d.notes)}</td></tr>` : ""}
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          `}
+        </div>
+      </div>
+      <div class="toasts"></div>
+    `;
+
+    document.querySelectorAll("[data-bind]").forEach(el => {
+      el.addEventListener("change", (e) => {
+        const k = e.target.getAttribute("data-bind");
+        if (k === "filterCenter") state.filterCenter = e.target.value;
+        if (k === "filterOpenOnly") state.filterOpenOnly = e.target.checked;
+        render();
+      });
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-action");
+    const id = btn.getAttribute("data-id") || "";
+    if (action === "pick-reason") {
+      state.selectedReason = id;
+      render();
+    } else if (action === "close") {
+      closeLog(id);
+    } else if (action === "delete") {
+      removeLog(id);
+    } else if (action === "reload") {
+      load();
+      toast("Reloaded");
+      render();
+    }
+  });
+
+  document.addEventListener("submit", (e) => {
+    const form = e.target.closest("[data-form=log]");
+    if (!form) return;
+    e.preventDefault();
+    const fd = new FormData(form);
+    const fields = Object.fromEntries(fd.entries());
+    fields.reason = state.selectedReason;
+    if (!fields.workCenterId && !fields.workOrderId) {
+      toast("Pick a work order or work center", "error");
+      return;
+    }
+    addLog(fields);
+    form.reset();
+  });
+
+  if (!load()) {
+    fetch("capacity-data.json").then(r => r.json()).then(d => {
+      state.data = {
+        workCenters: d.workCenters || [],
+        people: d.people || [],
+        workOrders: d.workOrders || [],
+        absences: d.absences || [],
+        downtime: d.downtime || [],
+        version: 1,
+        updatedAt: Date.now()
+      };
+      save();
+      render();
+    }).catch(() => render());
+  } else {
+    render();
+  }
+})();
+  </script>
+</body>
+</html>

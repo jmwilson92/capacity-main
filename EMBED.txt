@@ -1,0 +1,79 @@
+Capacity Tracker — SharePoint embed code
+========================================
+
+DO NOT embed a Shared Documents file. SharePoint downloads HTML
+and the page goes blank. That cannot be fixed in Embed.
+
+Use the website (after GitHub Pages is turned on):
+
+<iframe src="https://jmwilson92.github.io/capacity/" width="100%" height="1000" style="border:0;"></iframe>
+
+Turn Pages on: GitHub repo → Settings → Pages
+→ Build: Deploy from a branch → Branch: main → folder: / (root) → Save
+OR Build: GitHub Actions, then re-run the pages workflow.
+
+Until then, open the downloaded CapacityTracker.html on your PC.
+
+
+------------------------------------------------
+OLDER NOTES
+------------------------------------------------
+
+DO NOT use a link that contains  download.aspx
+That is a download ticket. It will 404 or download the file.
+Example of a BAD link:
+
+https://fuseintegration.sharepoint.us/sites/Production/_layouts/15/download.aspx?UniqueId=...
+
+
+------------------------------------------------
+TRY THIS IN A NEW BROWSER TAB FIRST
+------------------------------------------------
+
+https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/index.aspx
+
+If that opens the tracker, use the Documents embed block below.
+If it 404s, try the Site Assets link.
+If it downloads the file, skip Embed. SharePoint will not run the app.
+
+
+------------------------------------------------
+DOCUMENTS (most likely — use this first)
+------------------------------------------------
+
+<iframe src="https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/index.aspx" width="100%" height="1000" style="border:0;"></iframe>
+
+
+------------------------------------------------
+SITE ASSETS (only if the folder is there)
+------------------------------------------------
+
+<iframe src="https://fuseintegration.sharepoint.us/sites/Production/SiteAssets/capacity-main/index.aspx" width="100%" height="1000" style="border:0;"></iframe>
+
+
+------------------------------------------------
+HOW TO CHECK WHICH ONE IS RIGHT
+------------------------------------------------
+
+1. Open the Production site.
+2. Open the folder where you uploaded capacity-main.
+3. Click the three dots next to index.aspx.
+4. Copy link / open it in a new tab.
+
+If the address bar contains SiteAssets, use the first block.
+If it contains Shared Documents or Documents, use the second block.
+
+If that tab shows 404, the file is not at that path.
+If that tab downloads the file, do not use Embed.
+   Use a Quick links / Text web part and link to index.aspx instead.
+
+
+------------------------------------------------
+WRONG (this is what caused problems before)
+------------------------------------------------
+
+style="border:0;"<>/iframe>
+
+RIGHT:
+
+style="border:0;"></iframe>

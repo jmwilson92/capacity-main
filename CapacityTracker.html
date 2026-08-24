@@ -1,0 +1,4877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capacity Tracker</title>
+  <meta name="description" content="Track work center capacity, people hours, and work order load.">
+  <style>
+:root {
+  --paper: #f3efe6;
+  --paper-2: #e8e2d4;
+  --ink: #1b1814;
+  --ink-soft: #5c564c;
+  --rule: #d4cbb8;
+  --card: #fffcf6;
+  --card-2: #f7f1e6;
+  --accent: #1f6f6a;
+  --accent-ink: #0e3d3a;
+  --accent-soft: #d5ebe8;
+  --over: #9b2c1a;
+  --over-soft: #f6d9d2;
+  --tight: #9a4d0f;
+  --tight-soft: #f6e3c8;
+  --healthy: #2d6a3a;
+  --healthy-soft: #d7ead9;
+  --light: #3d5c78;
+  --light-soft: #d7e3ee;
+  --hold: #6b5a2e;
+  --shadow: 0 1px 0 rgba(27, 24, 20, 0.06), 0 12px 28px rgba(27, 24, 20, 0.08);
+  --radius: 14px;
+  --sans: "Segoe UI", "Source Sans 3", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Segoe UI Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 0 0, rgba(31, 111, 106, 0.07), transparent 32rem),
+    linear-gradient(180deg, #efe8d8 0%, var(--paper) 14rem);
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+#app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(243, 239, 230, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem 0.35rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-ink);
+  color: #f4efe4;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.brand p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0 1rem 0.45rem;
+  overflow-x: auto;
+}
+
+.tab {
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover { background: rgba(27, 24, 20, 0.05); color: var(--ink); }
+.tab.is-on {
+  background: var(--accent-ink);
+  color: #f6f1e7;
+}
+
+.wrap {
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  padding: 1.1rem 1.15rem 3rem;
+  flex: 1;
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-head h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.page-head .lede {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+}
+
+.filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.kpi, .card, .empty, .modal-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.kpi {
+  padding: 0.9rem 1rem;
+}
+
+.kpi .label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kpi .value {
+  font-size: 1.7rem;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.15rem;
+}
+
+.kpi .hint {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.kpi.over { background: linear-gradient(180deg, #fff8f5, var(--card)); }
+.kpi.tight { background: linear-gradient(180deg, #fff8ee, var(--card)); }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 0.75rem;
+}
+
+.card { padding: 1rem; }
+.card h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.55rem 0.45rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+
+th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  font-weight: 650;
+}
+
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(31, 111, 106, 0.04); }
+
+.num, .right { text-align: right; }
+.muted { color: var(--ink-soft); }
+.tiny { font-size: 0.78rem; }
+
+.center-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+.util {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 8rem;
+}
+
+.bar {
+  flex: 1;
+  height: 0.45rem;
+  background: var(--paper-2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--healthy);
+}
+
+.bar.over > span { background: var(--over); }
+.bar.tight > span { background: var(--tight); }
+.bar.light > span { background: var(--light); }
+.bar.none > span { background: transparent; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  background: var(--card-2);
+}
+
+.pill.over { background: var(--over-soft); color: var(--over); }
+.pill.tight { background: var(--tight-soft); color: var(--tight); }
+.pill.healthy { background: var(--healthy-soft); color: var(--healthy); }
+.pill.light { background: var(--light-soft); color: var(--light); }
+.pill.queued { background: #ece7db; }
+.pill.in-progress { background: var(--accent-soft); color: var(--accent-ink); }
+.pill.on-hold { background: #efe4c4; color: var(--hold); }
+.pill.complete { background: #e4e4e4; color: #555; }
+.pill.high { background: var(--over-soft); color: var(--over); }
+.pill.low { background: #ece7db; }
+
+.btn {
+  border: 1px solid var(--rule);
+  background: var(--card);
+  border-radius: 10px;
+  padding: 0.42rem 0.75rem;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.btn:hover { border-color: #b9ae97; background: #fff; }
+.btn.primary {
+  background: var(--accent-ink);
+  color: #f6f1e7;
+  border-color: var(--accent-ink);
+}
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--over); border-color: #e3b6ad; }
+.btn.danger:hover { background: var(--over-soft); }
+.btn.small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.icon-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+}
+
+.field, .search {
+  border: 1px solid var(--rule);
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.42rem 0.65rem;
+}
+
+.search { min-width: 12rem; }
+.field.compact { min-width: 10.5rem; padding: 0.28rem 0.45rem; }
+.pill.pto { background: var(--light-soft); color: var(--light); }
+.pill.sick { background: var(--over-soft); color: var(--over); }
+.pill.other { background: #ece7db; }
+.out-block {
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+}
+.out-block h3 { margin-bottom: 0.35rem; }
+
+.check {
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+.check input {
+  margin-top: 0.2rem;
+  flex: 0 0 auto;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.wc-card { padding: 1rem; display: flex; flex-direction: column; gap: 0.65rem; }
+.wc-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.wc-card h3 { margin: 0; font-size: 1.05rem; }
+.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.meta div {
+  background: var(--card-2);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+}
+.meta .k { display: block; font-size: 0.7rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+.meta .v { font-weight: 650; font-variant-numeric: tabular-nums; }
+
+.row-actions { display: flex; gap: 0.3rem; }
+
+.empty {
+  padding: 2.2rem 1.4rem;
+  text-align: center;
+}
+.empty h3 { margin: 0 0 0.35rem; }
+.empty p { color: var(--ink-soft); margin: 0 0 1rem; }
+
+.week-grid { overflow-x: auto; }
+.week-grid table { min-width: 720px; }
+.week-cell {
+  min-width: 5.6rem;
+  padding: 0.45rem 0.35rem !important;
+}
+.week-cell .pct { font-weight: 700; display: block; }
+.week-cell .hrs { color: var(--ink-soft); font-size: 0.75rem; }
+.week-cell.over { background: var(--over-soft); }
+.week-cell.tight { background: var(--tight-soft); }
+.week-cell.healthy { background: var(--healthy-soft); }
+.week-cell.light { background: var(--light-soft); }
+.week-head.current { color: var(--accent-ink); }
+
+.stack { display: flex; flex-direction: column; gap: 0.75rem; }
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.list-item:last-child { border-bottom: 0; padding-bottom: 0; }
+
+dialog {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: calc(100vw - 1.5rem);
+}
+dialog::backdrop { background: rgba(27, 24, 20, 0.45); }
+.modal-card {
+  width: min(560px, 92vw);
+  padding: 1.15rem 1.15rem 1rem;
+}
+.modal-card.wide { width: min(720px, 94vw); }
+.modal-card h3 { margin: 0 0 0.25rem; }
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem 0.75rem;
+  margin: 1rem 0;
+}
+.form-grid label, .stack-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+.form-grid .span-2 { grid-column: 1 / -1; }
+.form-grid input, .form-grid select, .form-grid textarea {
+  font-weight: 400;
+  color: var(--ink);
+}
+textarea { min-height: 4.2rem; resize: vertical; }
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.toasts {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  z-index: 40;
+}
+.toast {
+  background: var(--accent-ink);
+  color: #f6f1e7;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  max-width: 22rem;
+}
+.toast.error { background: var(--over); }
+
+.banner {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+.banner.warn { background: var(--tight-soft); color: var(--tight); }
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.help {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.linkish {
+  background: none;
+  border: 0;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.busy { opacity: 0.65; pointer-events: none; }
+
+@media (max-width: 900px) {
+  .kpis, .grid-2, .settings-grid, .form-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  .kpis, .grid-2, .settings-grid, .form-grid, .meta { grid-template-columns: 1fr; }
+  .top-row { align-items: flex-start; }
+  .brand p { display: none; }
+  .form-grid .span-2 { grid-column: auto; }
+}
+
+@media print {
+  .top, .btn, .toasts, .filters, .modal-actions { display: none !important; }
+  body, .wrap { background: #fff; }
+  .card, .kpi { box-shadow: none; }
+}
+
+  </style>
+</head>
+<body>
+  <div id="app">
+    <p style="font-family:Segoe UI,sans-serif;padding:2rem">Loading Capacity Tracker…</p>
+  </div>
+  <script>
+/**
+ * Capacity math for work centers, people, and work orders.
+ * Works in the browser (window.CapacityCalc) and in Node tests.
+ */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) {
+    module.exports = api;
+  }
+  root.CapacityCalc = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  const MS_DAY = 86400000;
+  const MONTHS = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ];
+
+  function parseDate(value) {
+    if (!value && value !== 0) return null;
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) return null;
+      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+    const s = String(value).trim();
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (iso) {
+      return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    }
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  function formatISO(date) {
+    const d = date instanceof Date ? date : parseDate(date);
+    if (!d) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatShort(date) {
+    const d = date instanceof Date ? date : parseDate(date);
+    if (!d) return "";
+    return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  }
+
+  function startOfWeek(date, weekStartsOn) {
+    const startOn = weekStartsOn == null ? 1 : Number(weekStartsOn);
+    const d = parseDate(date) || parseDate(new Date());
+    const day = d.getDay();
+    const diff = (day - startOn + 7) % 7;
+    return addDays(d, -diff);
+  }
+
+  function addDays(date, n) {
+    const d = parseDate(date) || parseDate(new Date());
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + Number(n));
+  }
+
+  function weekKey(date, weekStartsOn) {
+    return formatISO(startOfWeek(date, weekStartsOn));
+  }
+
+  function weekLabel(start, end) {
+    return `${formatShort(start)}–${formatShort(end)}`;
+  }
+
+  function planningWeeks(count, weekStartsOn, from) {
+    const n = Math.max(1, Number(count) || 8);
+    const origin = startOfWeek(from || new Date(), weekStartsOn);
+    const weeks = [];
+    for (let i = 0; i < n; i++) {
+      const start = addDays(origin, i * 7);
+      const end = addDays(start, 6);
+      weeks.push({
+        index: i,
+        key: formatISO(start),
+        start,
+        end,
+        label: weekLabel(start, end),
+        isCurrent: i === 0
+      });
+    }
+    return weeks;
+  }
+
+  function num(value, fallback) {
+    if (value === null || value === undefined || value === "") {
+      return fallback;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function workDays(person) {
+    const days = num(person && person.workDays, 5);
+    return days > 0 ? days : 5;
+  }
+
+  function hoursPerWorkDay(person) {
+    const weekly = num(person && person.hoursPerWeek, 0);
+    if (weekly <= 0) return 0;
+    return weekly / workDays(person);
+  }
+
+  function efficiencyFactor(person) {
+    const eff = num(person && person.efficiency, 100);
+    return eff > 0 ? eff / 100 : 0;
+  }
+
+  function effectiveWeeklyHours(person) {
+    const hours = num(person && person.hoursPerWeek, 0);
+    if (hours <= 0) return 0;
+    return hours * efficiencyFactor(person);
+  }
+
+  function isWeekday(date) {
+    const d = parseDate(date);
+    if (!d) return false;
+    const day = d.getDay();
+    return day !== 0 && day !== 6;
+  }
+
+  function isWeekend(date) {
+    const d = parseDate(date);
+    if (!d) return false;
+    const day = d.getDay();
+    return day === 0 || day === 6;
+  }
+
+  function flagOn(value) {
+    return value === true || value === "true" || value === "on" || value === 1 || value === "1";
+  }
+
+  function countsWeekends(person, absence) {
+    if (absence && absence.includeWeekends !== undefined && absence.includeWeekends !== null && absence.includeWeekends !== "") {
+      return flagOn(absence.includeWeekends);
+    }
+    return flagOn(person && person.worksWeekends);
+  }
+
+  function isCountableDay(date, includeWeekends) {
+    if (isWeekday(date)) return true;
+    return Boolean(includeWeekends) && isWeekend(date);
+  }
+
+  function eachDate(start, end, fn) {
+    const a = parseDate(start);
+    const b = parseDate(end) || a;
+    if (!a || !b) return;
+    let cursor = a <= b ? a : b;
+    const stop = a <= b ? b : a;
+    while (cursor <= stop) {
+      fn(new Date(cursor.getTime()));
+      cursor = addDays(cursor, 1);
+    }
+  }
+
+  function weekdayCount(start, end, includeWeekends) {
+    let count = 0;
+    eachDate(start, end, (d) => {
+      if (isCountableDay(d, includeWeekends)) count += 1;
+    });
+    return count;
+  }
+
+  function datesOverlap(aStart, aEnd, bStart, bEnd) {
+    const a0 = parseDate(aStart);
+    const a1 = parseDate(aEnd) || a0;
+    const b0 = parseDate(bStart);
+    const b1 = parseDate(bEnd) || b0;
+    if (!a0 || !b0) return false;
+    const aLo = a0 <= a1 ? a0 : a1;
+    const aHi = a0 <= a1 ? a1 : a0;
+    return aLo <= b1 && aHi >= b0;
+  }
+
+  function hasExplicitHours(absence) {
+    return !(absence.hours === null || absence.hours === undefined || absence.hours === "");
+  }
+
+  function weekdayCountInWeek(start, end, week, includeWeekends) {
+    let count = 0;
+    eachDate(start, end, (d) => {
+      if (isCountableDay(d, includeWeekends) && d >= week.start && d <= week.end) count += 1;
+    });
+    return count;
+  }
+
+  function absenceHoursInWeek(absence, person, week) {
+    if (!absence || !week) return 0;
+    const start = absence.startDate;
+    const end = absence.endDate || absence.startDate;
+    if (!datesOverlap(start, end, week.start, week.end)) return 0;
+
+    const weekends = countsWeekends(person, absence);
+    const daysInWeek = weekdayCountInWeek(start, end, week, weekends);
+    const daysTotal = weekdayCount(start, end, weekends);
+
+    if (hasExplicitHours(absence)) {
+      const total = Math.max(0, num(absence.hours, 0));
+      if (daysTotal === 0) {
+        const s = parseDate(start);
+        return s && s >= week.start && s <= week.end ? total : 0;
+      }
+      return total * (daysInWeek / daysTotal);
+    }
+
+    return daysInWeek * hoursPerWorkDay(person);
+  }
+
+  function timeOffHoursForPerson(person, absences, week) {
+    if (!person) return 0;
+    const pid = String(person.id);
+    let off = 0;
+    for (const absence of absences || []) {
+      if (!absence || String(absence.personId) !== pid) continue;
+      off += absenceHoursInWeek(absence, person, week);
+    }
+    return Math.min(off, Math.max(0, num(person.hoursPerWeek, 0)));
+  }
+
+  function personWeekBreakdown(person, absences, week) {
+    const baseHours = Math.max(0, num(person && person.hoursPerWeek, 0));
+    const off = timeOffHoursForPerson(person, absences, week);
+    const remainingClock = Math.max(0, baseHours - off);
+    const factor = efficiencyFactor(person);
+    return {
+      baseHours,
+      off,
+      remainingClock,
+      available: remainingClock * factor,
+      effectiveBase: baseHours * factor
+    };
+  }
+
+  function upcomingAbsence(person, absences, from) {
+    const today = parseDate(from || new Date());
+    const pid = String(person && person.id);
+    return (absences || [])
+      .filter((a) => a && String(a.personId) === pid)
+      .filter((a) => {
+        const end = parseDate(a.endDate || a.startDate);
+        return end && end >= today;
+      })
+      .sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)))[0] || null;
+  }
+
+  function remainingHours(wo) {
+    if (!wo || wo.status === "complete") return 0;
+    if (wo.remainingHours === null || wo.remainingHours === undefined || wo.remainingHours === "") {
+      return Math.max(0, num(wo.hours, 0));
+    }
+    return Math.max(0, num(wo.remainingHours, 0));
+  }
+
+  function isOpen(wo) {
+    return Boolean(wo) && wo.status !== "complete";
+  }
+
+  function isOverdue(wo, from) {
+    if (!isOpen(wo)) return false;
+    const due = parseDate(wo.dueDate);
+    if (!due) return false;
+    const today = parseDate(from || new Date());
+    return due < today;
+  }
+
+  function weeksUntilDue(dueDate, weekStartsOn, from) {
+    const due = parseDate(dueDate);
+    if (!due) return null;
+    const dueWeek = startOfWeek(due, weekStartsOn);
+    const nowWeek = startOfWeek(from || new Date(), weekStartsOn);
+    return Math.round((dueWeek - nowWeek) / (7 * MS_DAY));
+  }
+
+  function weeklyCapacityByCenter(people) {
+    const map = Object.create(null);
+    for (const person of people || []) {
+      if (!person || !person.workCenterId) continue;
+      const id = String(person.workCenterId);
+      map[id] = (map[id] || 0) + effectiveWeeklyHours(person);
+    }
+    return map;
+  }
+
+  function headcountByCenter(people) {
+    const map = Object.create(null);
+    for (const person of people || []) {
+      if (!person || !person.workCenterId) continue;
+      const id = String(person.workCenterId);
+      map[id] = (map[id] || 0) + 1;
+    }
+    return map;
+  }
+
+  function utilization(load, capacity) {
+    const l = num(load, 0);
+    const c = num(capacity, 0);
+    if (c <= 0) return l > 0 ? Infinity : 0;
+    return l / c;
+  }
+
+  function utilLevel(util) {
+    if (!Number.isFinite(util)) return util > 0 ? "over" : "none";
+    if (util > 1) return "over";
+    if (util >= 0.85) return "tight";
+    if (util >= 0.55) return "healthy";
+    if (util > 0) return "light";
+    return "none";
+  }
+
+  function formatUtil(util) {
+    if (!Number.isFinite(util)) return util > 0 ? "No cap." : "—";
+    return `${Math.round(util * 100)}%`;
+  }
+
+  function formatHours(value) {
+    const n = num(value, 0);
+    const rounded = Math.round(n * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  }
+
+  /**
+   * Split a work order's remaining hours into week buckets.
+   * due-week: all hours land in the due date's week
+   * spread: hours split evenly from the current week through the due week
+   */
+  function distributeHours(wo, weeks, weekStartsOn, mode, from) {
+    const hours = remainingHours(wo);
+    if (hours <= 0) return {};
+
+    const due = parseDate(wo.dueDate);
+    if (!due) return { unscheduled: hours };
+
+    const currentStart = startOfWeek(from || new Date(), weekStartsOn);
+    const dueStart = startOfWeek(due, weekStartsOn);
+    const dueKey = formatISO(dueStart);
+    const horizonKeys = new Set((weeks || []).map((w) => w.key));
+
+    if (dueStart < currentStart) {
+      return { overdue: hours };
+    }
+
+    if (mode !== "spread") {
+      if (horizonKeys.has(dueKey)) return { [dueKey]: hours };
+      return { later: hours };
+    }
+
+    const keys = [];
+    let cursor = new Date(currentStart.getTime());
+    while (cursor <= dueStart) {
+      keys.push(formatISO(cursor));
+      cursor = addDays(cursor, 7);
+    }
+    if (!keys.length) return { overdue: hours };
+
+    const per = hours / keys.length;
+    const out = Object.create(null);
+    for (const key of keys) {
+      if (horizonKeys.has(key)) {
+        out[key] = (out[key] || 0) + per;
+      } else {
+        out.later = (out.later || 0) + per;
+      }
+    }
+    return out;
+  }
+
+  function getAssembliesFromData(data) {
+    if (data && Array.isArray(data.assemblies)) return data.assemblies;
+    try {
+      const raw = JSON.parse(localStorage.getItem("capacity-tracker.v1") || "{}");
+      return raw.assemblies || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /** Backward-schedule product WI steps from due date onto each step's work center. */
+  function distributeProductWiSteps(wo, assemblies, weeks, weekStartsOn, mode, from) {
+    // returns [{ workCenterId, buckets: { weekKey: hours } }]
+    const asm = (assemblies || []).find((a) => String(a.id) === String(wo.assemblyId));
+    if (!asm || !Array.isArray(asm.steps) || !asm.steps.length) return null;
+
+    const due = parseDate(wo.dueDate);
+    if (!due) return null;
+
+    const steps = asm.steps.map((s) => {
+      if (typeof s === "string") return { text: s, projectedHours: 0, workCenterId: "", done: false };
+      return {
+        text: s.text || "",
+        projectedHours: Math.max(0, Number(s.projectedHours) || 0),
+        workCenterId: s.workCenterId ? String(s.workCenterId) : "",
+        done: Boolean(s.done),
+        stepType: s.stepType || "assembly"
+      };
+    }).filter((s) => s.projectedHours > 0);
+
+    if (!steps.length) return null;
+
+    // Prefer incomplete steps only if traveler marked remainingHours < total
+    // Use all steps for planning unless remaining is partial - scale if needed
+    const totalH = steps.reduce((sum, s) => sum + s.projectedHours, 0);
+    const rem = remainingHours(wo);
+    const scale = totalH > 0 && rem > 0 && rem < totalH - 0.01 ? rem / totalH : 1;
+
+    const HOUR_DAY = 8;
+    const results = [];
+    // Work backward from due date: last step ends on due, previous ends when next starts
+    let cursorEnd = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+
+    for (let i = steps.length - 1; i >= 0; i--) {
+      const step = steps[i];
+      const hrs = step.projectedHours * scale;
+      if (hrs <= 0) continue;
+      const daysNeeded = Math.max(1, Math.ceil(hrs / HOUR_DAY));
+      // move cursor back by workdays (Mon-Fri)
+      let remainingDays = daysNeeded;
+      let end = new Date(cursorEnd.getTime());
+      let start = new Date(cursorEnd.getTime());
+      while (remainingDays > 0) {
+        start = addDays(start, -1);
+        const day = start.getDay();
+        if (day !== 0 && day !== 6) remainingDays -= 1;
+      }
+      // synthetic mini-order for distributeHours week bucketing
+      const slice = {
+        remainingHours: hrs,
+        hours: hrs,
+        status: wo.status || "queued",
+        dueDate: formatISO(end)
+      };
+      const buckets = distributeHours(slice, weeks, weekStartsOn, mode || "spread", from);
+      const wcId = step.workCenterId || (wo.workCenterId ? String(wo.workCenterId) : "");
+      results.push({ workCenterId: wcId, buckets, hours: hrs, stepText: step.text });
+      cursorEnd = start; // previous step ends when this starts
+    }
+    return results;
+  }
+
+
+  function emptyWeekMap(weeks) {
+    const map = Object.create(null);
+    for (const week of weeks) map[week.key] = 0;
+    return map;
+  }
+
+  function emptyCenter(wc, weeklyCap, headcount, weeks) {
+    const capacityByWeek = emptyWeekMap(weeks);
+    const timeOffByWeek = emptyWeekMap(weeks);
+    for (const week of weeks) capacityByWeek[week.key] = weeklyCap;
+    return {
+      id: String(wc.id),
+      name: wc.name || "Untitled",
+      notes: wc.notes || "",
+      color: wc.color || "#1f6f6a",
+      weeklyCapacity: weeklyCap,
+      headcount,
+      remainingHours: 0,
+      overdueHours: 0,
+      laterHours: 0,
+      unscheduledHours: 0,
+      completeHours: 0,
+      openCount: 0,
+      loadByWeek: emptyWeekMap(weeks),
+      capacityByWeek,
+      timeOffByWeek,
+      orders: [],
+      overdueOrders: [],
+      thisWeekLoad: 0,
+      thisWeekCapacity: weeklyCap,
+      thisWeekTimeOff: 0,
+      thisWeekUtil: 0,
+      thisWeekLevel: "none",
+      horizonLoad: 0,
+      horizonCapacity: weeklyCap * weeks.length,
+      horizonUtil: 0,
+      horizonLevel: "none",
+      availableThisWeek: weeklyCap
+    };
+  }
+
+  function applyWeekCapacity(center, weeks, capacityByWeek, timeOffByWeek) {
+    const id = center.id;
+    for (const week of weeks) {
+      if (capacityByWeek && capacityByWeek[id]) {
+        center.capacityByWeek[week.key] = capacityByWeek[id][week.key] || 0;
+      }
+      if (timeOffByWeek && timeOffByWeek[id]) {
+        center.timeOffByWeek[week.key] = timeOffByWeek[id][week.key] || 0;
+      }
+    }
+    return center;
+  }
+
+  function finalizeCenter(center, weeks) {
+    const thisKey = weeks.length ? weeks[0].key : "";
+    center.thisWeekLoad = thisKey ? center.loadByWeek[thisKey] || 0 : 0;
+    center.thisWeekCapacity = thisKey ? center.capacityByWeek[thisKey] || 0 : 0;
+    center.thisWeekTimeOff = thisKey ? center.timeOffByWeek[thisKey] || 0 : 0;
+    center.thisWeekUtil = utilization(center.thisWeekLoad, center.thisWeekCapacity);
+    center.thisWeekLevel = utilLevel(center.thisWeekUtil);
+    center.horizonLoad = weeks.reduce((sum, week) => sum + (center.loadByWeek[week.key] || 0), 0);
+    center.horizonCapacity = weeks.reduce((sum, week) => sum + (center.capacityByWeek[week.key] || 0), 0);
+    center.horizonUtil = utilization(center.horizonLoad, center.horizonCapacity);
+    center.horizonLevel = utilLevel(center.horizonUtil);
+    center.availableThisWeek = center.thisWeekCapacity - center.thisWeekLoad;
+    return center;
+  }
+
+  function rollup(centers, weeks) {
+    const totals = emptyCenter(
+      { id: "all", name: "All work centers", color: "#1f6f6a" },
+      centers.reduce((s, c) => s + c.weeklyCapacity, 0),
+      centers.reduce((s, c) => s + c.headcount, 0),
+      weeks
+    );
+    for (const week of weeks) {
+      totals.capacityByWeek[week.key] = 0;
+      totals.timeOffByWeek[week.key] = 0;
+    }
+    for (const center of centers) {
+      totals.remainingHours += center.remainingHours;
+      totals.overdueHours += center.overdueHours;
+      totals.laterHours += center.laterHours;
+      totals.unscheduledHours += center.unscheduledHours;
+      totals.completeHours += center.completeHours;
+      totals.openCount += center.openCount;
+      totals.orders = totals.orders.concat(center.orders);
+      totals.overdueOrders = totals.overdueOrders.concat(center.overdueOrders);
+      for (const week of weeks) {
+        totals.loadByWeek[week.key] += center.loadByWeek[week.key] || 0;
+        totals.capacityByWeek[week.key] += center.capacityByWeek[week.key] || 0;
+        totals.timeOffByWeek[week.key] += center.timeOffByWeek[week.key] || 0;
+      }
+    }
+    return finalizeCenter(totals, weeks);
+  }
+
+  /**
+   * A job "fits alone" if its remaining hours can be absorbed by this
+   * work center's capacity between now and the due week. Pass capacityByWeek
+   * (week key → hours) to account for PTO; otherwise weeklyCapacity is repeated.
+   */
+  function fitsAlone(wo, weeklyCapacity, weekStartsOn, from, capacityByWeek) {
+    if (!isOpen(wo)) return true;
+    const hours = remainingHours(wo);
+    if (hours <= 0) return true;
+    const until = weeksUntilDue(wo.dueDate, weekStartsOn, from);
+    if (until == null) return true;
+    if (until < 0) return false;
+    if (capacityByWeek && typeof capacityByWeek === "object") {
+      const origin = startOfWeek(from || new Date(), weekStartsOn);
+      let sum = 0;
+      for (let i = 0; i <= until; i++) {
+        sum += num(capacityByWeek[formatISO(addDays(origin, i * 7))], 0);
+      }
+      return hours <= sum + 1e-9;
+    }
+    const cap = num(weeklyCapacity, 0);
+    if (cap <= 0) return false;
+    return hours <= cap * (until + 1) + 1e-9;
+  }
+
+  function weekCapacityMaps(people, absences, weeks) {
+    const capacityByWeek = Object.create(null);
+    const timeOffByWeek = Object.create(null);
+    for (const person of people || []) {
+      if (!person || !person.workCenterId) continue;
+      const id = String(person.workCenterId);
+      if (!capacityByWeek[id]) {
+        capacityByWeek[id] = emptyWeekMap(weeks);
+        timeOffByWeek[id] = emptyWeekMap(weeks);
+      }
+      for (const week of weeks) {
+        const row = personWeekBreakdown(person, absences, week);
+        capacityByWeek[id][week.key] += row.available;
+        timeOffByWeek[id][week.key] += row.off;
+      }
+    }
+    return { capacityByWeek, timeOffByWeek };
+  }
+
+  function summarize(data, options) {
+    const opts = options || {};
+    const weekCount = num(opts.planningWeeks, 8);
+    const weekStartsOn = num(opts.weekStartsOn, 1);
+    const loadMode = opts.loadMode === "spread" ? "spread" : "due-week";
+    const from = opts.from || new Date();
+    const weeks = planningWeeks(weekCount, weekStartsOn, from);
+    const people = (data && data.people) || [];
+    const orders = (data && data.workOrders) || [];
+    const workCenters = (data && data.workCenters) || [];
+    const absences = (data && data.absences) || [];
+    const capacity = weeklyCapacityByCenter(people);
+    const headcount = headcountByCenter(people);
+    const weekMaps = weekCapacityMaps(people, absences, weeks);
+    const byCenter = Object.create(null);
+
+    for (const wc of workCenters) {
+      const id = String(wc.id);
+      byCenter[id] = applyWeekCapacity(
+        emptyCenter(wc, capacity[id] || 0, headcount[id] || 0, weeks),
+        weeks,
+        weekMaps.capacityByWeek,
+        weekMaps.timeOffByWeek
+      );
+    }
+
+    const unassigned = { hours: 0, orders: [] };
+
+    const assemblies = getAssembliesFromData(data);
+
+    for (const wo of orders) {
+      const rem = remainingHours(wo);
+      const isProductWi = wo.instructionKind === "product" && wo.assemblyId;
+
+      // Product / LRU WI: split hours across step work centers, backward from due date
+      if (isProductWi && isOpen(wo) && rem > 0) {
+        const slices = distributeProductWiSteps(wo, assemblies, weeks, weekStartsOn, "spread", from);
+        if (slices && slices.length) {
+          // Attach order to primary center for listing
+          const primaryId = wo.workCenterId ? String(wo.workCenterId) : (slices.find((s) => s.workCenterId) || {}).workCenterId;
+          if (primaryId && byCenter[primaryId]) {
+            byCenter[primaryId].orders.push(wo);
+            byCenter[primaryId].openCount += 1;
+          }
+          for (const slice of slices) {
+            const wcId = slice.workCenterId;
+            const target = wcId ? byCenter[wcId] : null;
+            if (!target) {
+              unassigned.hours += slice.hours || 0;
+              if (slice.hours) unassigned.orders.push(wo);
+              continue;
+            }
+            target.remainingHours += slice.hours || 0;
+            const buckets = slice.buckets || {};
+            if (buckets.overdue) {
+              target.overdueHours += buckets.overdue;
+              if (!target.overdueOrders.includes(wo)) target.overdueOrders.push(wo);
+            }
+            if (buckets.unscheduled) target.unscheduledHours += buckets.unscheduled;
+            if (buckets.later) target.laterHours += buckets.later;
+            for (const week of weeks) {
+              const hours = buckets[week.key] || 0;
+              if (hours) target.loadByWeek[week.key] += hours;
+            }
+          }
+          continue;
+        }
+      }
+
+      const wcId = wo.workCenterId ? String(wo.workCenterId) : "";
+      const target = wcId ? byCenter[wcId] : null;
+
+      if (!target) {
+        if (isOpen(wo) && rem > 0) {
+          unassigned.hours += rem;
+          unassigned.orders.push(wo);
+        }
+        continue;
+      }
+
+      target.orders.push(wo);
+      if (!isOpen(wo)) {
+        target.completeHours += Math.max(0, num(wo.hours, 0));
+        continue;
+      }
+
+      target.openCount += 1;
+      target.remainingHours += rem;
+      const buckets = distributeHours(wo, weeks, weekStartsOn, loadMode, from);
+      if (buckets.overdue) {
+        target.overdueHours += buckets.overdue;
+        target.overdueOrders.push(wo);
+      }
+      if (buckets.unscheduled) target.unscheduledHours += buckets.unscheduled;
+      if (buckets.later) target.laterHours += buckets.later;
+      for (const week of weeks) {
+        const hours = buckets[week.key] || 0;
+        if (hours) target.loadByWeek[week.key] += hours;
+      }
+    }
+
+    const centers = workCenters.map((wc) => finalizeCenter(byCenter[String(wc.id)], weeks));
+    const totals = rollup(centers, weeks);
+
+    const atRisk = [];
+    for (const center of centers) {
+      for (const wo of center.orders) {
+        if (!isOpen(wo)) continue;
+        const due = parseDate(wo.dueDate);
+        const dueKey = due ? weekKey(due, weekStartsOn) : null;
+        const dueWeekLoad = dueKey && Object.prototype.hasOwnProperty.call(center.loadByWeek, dueKey)
+          ? center.loadByWeek[dueKey]
+          : 0;
+        const dueWeekCap = dueKey && Object.prototype.hasOwnProperty.call(center.capacityByWeek, dueKey)
+          ? center.capacityByWeek[dueKey]
+          : center.weeklyCapacity;
+        const dueWeekOver = dueKey && Object.prototype.hasOwnProperty.call(center.loadByWeek, dueKey)
+          ? dueWeekLoad > dueWeekCap + 1e-9
+          : false;
+        const overdue = isOverdue(wo, from);
+        const alone = fitsAlone(wo, center.weeklyCapacity, weekStartsOn, from, center.capacityByWeek);
+        if (overdue || dueWeekOver || !alone) {
+          atRisk.push({
+            wo,
+            workCenter: center,
+            overdue,
+            dueWeekOver,
+            fitsAlone: alone
+          });
+        }
+      }
+    }
+
+    return {
+      weeks,
+      centers,
+      totals,
+      unassigned,
+      atRisk,
+      absences,
+      loadMode,
+      weekStartsOn,
+      asOf: parseDate(from)
+    };
+  }
+
+  return {
+    parseDate,
+    formatISO,
+    formatShort,
+    formatHours,
+    formatUtil,
+    startOfWeek,
+    addDays,
+    weekKey,
+    weekLabel,
+    planningWeeks,
+    workDays,
+    hoursPerWorkDay,
+    effectiveWeeklyHours,
+    isWeekday,
+    isWeekend,
+    countsWeekends,
+    isCountableDay,
+    weekdayCount,
+    remainingHours,
+    isOpen,
+    isOverdue,
+    weeksUntilDue,
+    weeklyCapacityByCenter,
+    headcountByCenter,
+    utilization,
+    utilLevel,
+    distributeHours,
+    fitsAlone,
+    absenceHoursInWeek,
+    timeOffHoursForPerson,
+    personWeekBreakdown,
+    upcomingAbsence,
+    weekCapacityMaps,
+    summarize
+  };
+});
+
+;
+/**
+ * Browser persistence: localStorage plus JSON import/export.
+ */
+(function (root) {
+  const STORAGE_KEY = "capacity-tracker.v1";
+  const SETTINGS_KEY = "capacity-tracker.settings.v1";
+
+  const DEFAULT_SETTINGS = {
+    siteName: "Shop floor",
+    planningWeeks: 8,
+    weekStartsOn: 1,
+    loadMode: "due-week",
+    storage: "local",
+    teamApiKey: "",
+    teamBinId: "",
+    sharepointSiteUrl: "",
+    clientId: "",
+    tenantId: "",
+    listWorkCenters: "CT Work Centers",
+    listPeople: "CT People",
+    listWorkOrders: "CT Work Orders",
+    listAbsences: "CT Time Off"
+  };
+
+  function uid(prefix) {
+    const rand = Math.random().toString(36).slice(2, 8);
+    return `${prefix}_${Date.now().toString(36)}_${rand}`;
+  }
+
+  function emptyData() {
+    return {
+      version: 1,
+      updatedAt: 0,
+      workCenters: [],
+      people: [],
+      workOrders: [],
+      absences: []
+    };
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  const memoryStore = Object.create(null);
+
+  function storageGet(key) {
+    try {
+      if (typeof localStorage !== "undefined") return localStorage.getItem(key);
+    } catch (err) {
+      /* iframe or locked-down SharePoint can block storage */
+    }
+    return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
+  }
+
+  function storageSet(key, text) {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(key, text);
+        return;
+      }
+    } catch (err) {
+      /* fall through to memory */
+    }
+    memoryStore[key] = text;
+  }
+
+  function readJson(key, fallback) {
+    try {
+      const raw = storageGet(key);
+      if (!raw) return clone(fallback);
+      return JSON.parse(raw);
+    } catch (err) {
+      console.warn("Capacity Tracker: could not read storage", err);
+      return clone(fallback);
+    }
+  }
+
+  function writeJson(key, value) {
+    storageSet(key, JSON.stringify(value));
+  }
+
+  function normalizeSettings(raw) {
+    const merged = Object.assign({}, DEFAULT_SETTINGS, raw || {});
+    merged.planningWeeks = Math.min(52, Math.max(1, Number(merged.planningWeeks) || 8));
+    merged.weekStartsOn = Number(merged.weekStartsOn) === 0 ? 0 : 1;
+    merged.loadMode = merged.loadMode === "spread" ? "spread" : "due-week";
+    merged.storage = ["file", "team", "sharepoint", "local"].indexOf(merged.storage) >= 0 ? merged.storage : "local";
+    merged.teamApiKey = String(merged.teamApiKey || "");
+    merged.teamBinId = String(merged.teamBinId || "");
+    merged.siteName = String(merged.siteName || DEFAULT_SETTINGS.siteName);
+    merged.sharepointSiteUrl = String(merged.sharepointSiteUrl || "");
+    merged.clientId = String(merged.clientId || "");
+    merged.tenantId = String(merged.tenantId || "");
+    merged.listWorkCenters = String(merged.listWorkCenters || DEFAULT_SETTINGS.listWorkCenters);
+    merged.listPeople = String(merged.listPeople || DEFAULT_SETTINGS.listPeople);
+    merged.listWorkOrders = String(merged.listWorkOrders || DEFAULT_SETTINGS.listWorkOrders);
+    merged.listAbsences = String(merged.listAbsences || DEFAULT_SETTINGS.listAbsences);
+    return merged;
+  }
+
+  function normalizeData(raw) {
+    const data = emptyData();
+    if (!raw || typeof raw !== "object") return data;
+    data.workCenters = Array.isArray(raw.workCenters) ? raw.workCenters.map(normalizeCenter) : [];
+    data.people = Array.isArray(raw.people) ? raw.people.map(normalizePerson) : [];
+    data.workOrders = Array.isArray(raw.workOrders) ? raw.workOrders.map(normalizeOrder) : [];
+    data.absences = Array.isArray(raw.absences) ? raw.absences.map(normalizeAbsence) : [];
+    data.updatedAt = Number(raw.updatedAt) || 0;
+    // Preserve production-suite fields written by other apps
+    ["assemblies","cableOps","assemblyOps","travelers","users","timeByProduct","downtime","skills","skillRatings","operations"].forEach(function (key) {
+      if (raw[key] !== undefined) data[key] = raw[key];
+    });
+    return data;
+  }
+
+  function normalizeColor(value) {
+    const s = String(value || "").trim();
+    return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s) ? s : "#1f6f6a";
+  }
+
+  function normalizeCenter(item) {
+    return {
+      id: String(item.id || uid("wc")),
+      name: String(item.name || "Untitled work center"),
+      notes: String(item.notes || ""),
+      color: normalizeColor(item.color)
+    };
+  }
+
+  function normalizePerson(item) {
+    const workDays = Number(item.workDays);
+    const role = String(item.role || "tech");
+    return {
+      id: String(item.id || uid("p")),
+      name: String(item.name || "Unnamed"),
+      workCenterId: item.workCenterId ? String(item.workCenterId) : "",
+      hoursPerWeek: Number(item.hoursPerWeek) || 0,
+      workDays: workDays >= 1 && workDays <= 7 ? workDays : 5,
+      worksWeekends: Boolean(item.worksWeekends),
+      efficiency: item.efficiency == null || item.efficiency === "" ? 100 : Number(item.efficiency),
+      notes: String(item.notes || ""),
+      pin: item.pin != null && String(item.pin) !== "" ? String(item.pin) : "1111",
+      mustChangePin: (function () {
+        if (item.mustChangePin === false || item.mustChangePin === "false") return false;
+        if (item.mustChangePin === true || item.mustChangePin === "true") return true;
+        if (item.pin == null || String(item.pin) === "") return true;
+        if (String(item.pin) === "1111") return true;
+        return false;
+      })(),
+      role: ["admin", "supervisor", "tech", "qa"].includes(role) ? role : "tech"
+    };
+  }
+
+  function normalizeAbsenceType(value) {
+    const allowed = ["pto", "sick", "other"];
+    return allowed.includes(value) ? value : "pto";
+  }
+
+  function normalizeAbsence(item) {
+    const start = item.startDate ? String(item.startDate).slice(0, 10) : "";
+    let end = item.endDate ? String(item.endDate).slice(0, 10) : start;
+    if (start && end && end < start) end = start;
+    return {
+      id: String(item.id || uid("abs")),
+      personId: item.personId ? String(item.personId) : "",
+      type: normalizeAbsenceType(item.type),
+      startDate: start,
+      endDate: end,
+      hours:
+        item.hours === null || item.hours === undefined || item.hours === ""
+          ? ""
+          : Number(item.hours),
+      includeWeekends: Boolean(item.includeWeekends),
+      notes: String(item.notes || "")
+    };
+  }
+
+  function normalizeOrder(item) {
+    return {
+      id: String(item.id || uid("wo")),
+      number: String(item.number || ""),
+      title: String(item.title || ""),
+      workCenterId: item.workCenterId ? String(item.workCenterId) : "",
+      hours: Number(item.hours) || 0,
+      remainingHours:
+        item.remainingHours === null || item.remainingHours === undefined || item.remainingHours === ""
+          ? Number(item.hours) || 0
+          : Number(item.remainingHours) || 0,
+      dueDate: item.dueDate ? String(item.dueDate).slice(0, 10) : "",
+      status: normalizeStatus(item.status),
+      priority: normalizePriority(item.priority),
+      notes: String(item.notes || ""),
+      // preserved by Work Orders / WIP / WI suite
+      instructionKind: item.instructionKind ? String(item.instructionKind) : "",
+      assemblyId: item.assemblyId ? String(item.assemblyId) : "",
+      productTag: item.productTag ? String(item.productTag) : "",
+      assignedTechId: item.assignedTechId ? String(item.assignedTechId) : "",
+      assignedTechName: item.assignedTechName ? String(item.assignedTechName) : "",
+      assignedQaId: item.assignedQaId ? String(item.assignedQaId) : "",
+      assignedQaName: item.assignedQaName ? String(item.assignedQaName) : "",
+      assignedAt: item.assignedAt ? String(item.assignedAt) : "",
+      travelerId: item.travelerId ? String(item.travelerId) : "",
+      travelerProgress: item.travelerProgress == null || item.travelerProgress === "" ? null : Number(item.travelerProgress),
+      travelerStatus: item.travelerStatus ? String(item.travelerStatus) : "",
+      currentOp: item.currentOp ? String(item.currentOp) : "",
+      hoursLogged: item.hoursLogged == null || item.hoursLogged === "" ? null : Number(item.hoursLogged),
+      hoursFromWi: Boolean(item.hoursFromWi)
+    };
+  }
+
+  function normalizeStatus(value) {
+    const allowed = ["queued", "in-progress", "on-hold", "complete"];
+    return allowed.includes(value) ? value : "queued";
+  }
+
+  function normalizePriority(value) {
+    const allowed = ["high", "medium", "low"];
+    return allowed.includes(value) ? value : "medium";
+  }
+
+  const LocalStore = {
+    loadSettings() {
+      return normalizeSettings(readJson(SETTINGS_KEY, DEFAULT_SETTINGS));
+    },
+    saveSettings(settings) {
+      const next = normalizeSettings(settings);
+      writeJson(SETTINGS_KEY, next);
+      return next;
+    },
+    load() {
+      return normalizeData(readJson(STORAGE_KEY, emptyData()));
+    },
+    save(data) {
+      let existing = {};
+      try { existing = readJson(STORAGE_KEY, {}) || {}; } catch (e) { existing = {}; }
+      const merged = Object.assign({}, existing, data || {});
+      if (data) {
+        if (data.workCenters) merged.workCenters = data.workCenters;
+        if (data.people) merged.people = data.people;
+        if (data.workOrders) merged.workOrders = data.workOrders;
+        if (data.absences) merged.absences = data.absences;
+        if (data.updatedAt) merged.updatedAt = data.updatedAt;
+      }
+      const next = normalizeData(merged);
+      writeJson(STORAGE_KEY, next);
+      return next;
+    },
+    clear() {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
+
+  function download(filename, text, type) {
+    const blob = new Blob([text], { type: type || "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function csvEscape(value) {
+    const s = value == null ? "" : String(value);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  }
+
+  function toCsv(rows) {
+    return rows.map((row) => row.map(csvEscape).join(",")).join("\r\n") + "\r\n";
+  }
+
+  function stamp() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+  }
+
+  function nextWorkOrderNumber(orders) {
+    let max = 1000;
+    for (const wo of orders || []) {
+      const match = String(wo.number || "").match(/(\d+)\s*$/);
+      if (match) max = Math.max(max, Number(match[1]));
+    }
+    return `WO-${max + 1}`;
+  }
+
+  const COLORS = ["#1f6f6a", "#1d4e89", "#8a3b12", "#6b4c9a", "#3d5a40", "#9a3412", "#0f4c5c", "#7a2f4b"];
+
+  function nextColor(centers) {
+    return COLORS[(centers || []).length % COLORS.length];
+  }
+
+  function addDaysIso(iso, days) {
+    const d = CapacityCalc.parseDate(iso) || new Date();
+    return CapacityCalc.formatISO(CapacityCalc.addDays(d, days));
+  }
+
+  function demoData(from) {
+    const today = CapacityCalc.formatISO(from || new Date());
+    const wc = [
+      { id: "wc_laser", name: "Laser / Burn", notes: "Table 1 & 2", color: "#1d4e89" },
+      { id: "wc_brake", name: "Press Brake", notes: "120-ton", color: "#6b4c9a" },
+      { id: "wc_weld", name: "Welding", notes: "MIG / TIG booths", color: "#8a3b12" },
+      { id: "wc_assy", name: "Assembly", notes: "Final build", color: "#1f6f6a" },
+      { id: "wc_paint", name: "Paint / Finish", notes: "Booth A", color: "#0f4c5c" }
+    ];
+    const people = [
+      { id: "p1", name: "Maya Chen", workCenterId: "wc_laser", hoursPerWeek: 40, workDays: 5, efficiency: 90, notes: "" },
+      { id: "p2", name: "Luis Ortega", workCenterId: "wc_laser", hoursPerWeek: 40, workDays: 5, efficiency: 85, notes: "" },
+      { id: "p3", name: "Priya Shah", workCenterId: "wc_brake", hoursPerWeek: 40, workDays: 5, efficiency: 95, notes: "" },
+      { id: "p4", name: "Chris Nguyen", workCenterId: "wc_weld", hoursPerWeek: 40, workDays: 5, efficiency: 90, notes: "" },
+      { id: "p5", name: "Dana Brooks", workCenterId: "wc_weld", hoursPerWeek: 40, workDays: 5, efficiency: 80, notes: "" },
+      { id: "p6", name: "Omar Haddad", workCenterId: "wc_weld", hoursPerWeek: 32, workDays: 4, efficiency: 85, notes: "4-day week" },
+      { id: "p7", name: "Elena Rossi", workCenterId: "wc_assy", hoursPerWeek: 40, workDays: 5, efficiency: 100, notes: "" },
+      { id: "p8", name: "James Okoye", workCenterId: "wc_assy", hoursPerWeek: 20, workDays: 5, efficiency: 100, notes: "Part-time" },
+      { id: "p9", name: "Hannah Kim", workCenterId: "wc_paint", hoursPerWeek: 48, workDays: 6, worksWeekends: true, efficiency: 85, notes: "Works Saturdays" },
+      { id: "p10", name: "Riley Cole", workCenterId: "", hoursPerWeek: 40, workDays: 5, efficiency: 100, notes: "New hire — not assigned yet" }
+    ];
+    const absences = [
+      { id: "abs1", personId: "p4", type: "sick", startDate: addDaysIso(today, 1), endDate: addDaysIso(today, 1), hours: "", notes: "Flu" },
+      { id: "abs2", personId: "p1", type: "pto", startDate: addDaysIso(today, 7), endDate: addDaysIso(today, 9), hours: "", notes: "Long weekend" },
+      { id: "abs3", personId: "p7", type: "pto", startDate: addDaysIso(today, 14), endDate: addDaysIso(today, 18), hours: "", notes: "Vacation" },
+      { id: "abs4", personId: "p3", type: "other", startDate: addDaysIso(today, 3), endDate: addDaysIso(today, 3), hours: 4, notes: "School conference, half day" },
+      { id: "abs5", personId: "p9", type: "pto", startDate: addDaysIso(today, 5), endDate: addDaysIso(today, 6), hours: "", includeWeekends: true, notes: "Weekend off" }
+    ];
+    const workOrders = [
+      { id: "wo1", number: "WO-1041", title: "Frame kit — Northline", workCenterId: "wc_laser", hours: 28, remainingHours: 28, dueDate: addDaysIso(today, 2), status: "in-progress", priority: "high", notes: "" },
+      { id: "wo2", number: "WO-1042", title: "Guard panels", workCenterId: "wc_laser", hours: 36, remainingHours: 36, dueDate: addDaysIso(today, 4), status: "queued", priority: "medium", notes: "" },
+      { id: "wo3", number: "WO-1044", title: "Hopper sides", workCenterId: "wc_brake", hours: 18, remainingHours: 10, dueDate: addDaysIso(today, 3), status: "in-progress", priority: "high", notes: "" },
+      { id: "wo4", number: "WO-1045", title: "Skid weldment", workCenterId: "wc_weld", hours: 60, remainingHours: 60, dueDate: addDaysIso(today, 5), status: "queued", priority: "high", notes: "Customer hold lifted" },
+      { id: "wo5", number: "WO-1046", title: "Handrail lot", workCenterId: "wc_weld", hours: 24, remainingHours: 24, dueDate: addDaysIso(today, 8), status: "queued", priority: "medium", notes: "" },
+      { id: "wo6", number: "WO-1048", title: "Cart assembly", workCenterId: "wc_assy", hours: 16, remainingHours: 16, dueDate: addDaysIso(today, 6), status: "queued", priority: "medium", notes: "" },
+      { id: "wo7", number: "WO-1033", title: "Repair — mixer lid", workCenterId: "wc_weld", hours: 12, remainingHours: 8, dueDate: addDaysIso(today, -2), status: "in-progress", priority: "high", notes: "Already late" },
+      { id: "wo8", number: "WO-1049", title: "Enclosures — 6 ea", workCenterId: "wc_paint", hours: 22, remainingHours: 22, dueDate: addDaysIso(today, 11), status: "queued", priority: "low", notes: "" },
+      { id: "wo9", number: "WO-1050", title: "Platform weldment", workCenterId: "wc_weld", hours: 48, remainingHours: 48, dueDate: addDaysIso(today, 12), status: "queued", priority: "medium", notes: "" },
+      { id: "wo10", number: "WO-1051", title: "Control box build", workCenterId: "wc_assy", hours: 30, remainingHours: 30, dueDate: addDaysIso(today, 14), status: "queued", priority: "medium", notes: "" },
+      { id: "wo11", number: "WO-1028", title: "Bracket lot", workCenterId: "wc_brake", hours: 14, remainingHours: 0, dueDate: addDaysIso(today, -5), status: "complete", priority: "low", notes: "" },
+      { id: "wo12", number: "WO-1052", title: "Tank wrappers", workCenterId: "wc_laser", hours: 40, remainingHours: 40, dueDate: addDaysIso(today, 18), status: "queued", priority: "medium", notes: "" },
+      { id: "wo13", number: "WO-1055", title: "Stair stringers", workCenterId: "wc_brake", hours: 26, remainingHours: 26, dueDate: addDaysIso(today, 21), status: "queued", priority: "high", notes: "" },
+      { id: "wo14", number: "WO-1056", title: "Mezzanine rails", workCenterId: "wc_weld", hours: 70, remainingHours: 70, dueDate: addDaysIso(today, 25), status: "on-hold", priority: "low", notes: "Waiting on steel" }
+    ];
+    return normalizeData({ version: 1, workCenters: wc, people, workOrders, absences });
+  }
+
+  root.CapacityStore = {
+    STORAGE_KEY,
+    DEFAULT_SETTINGS,
+    uid,
+    emptyData,
+    clone,
+    normalizeData,
+    normalizeSettings,
+    normalizeCenter,
+    normalizePerson,
+    normalizeOrder,
+    normalizeAbsence,
+    LocalStore,
+    download,
+    toCsv,
+    stamp,
+    nextWorkOrderNumber,
+    nextColor,
+    demoData
+  };
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+;
+/**
+ * SharePoint REST adapter. Same-origin only (Site Assets / embedded page
+ * on the SharePoint site). Uses the signed-in user's cookies.
+ */
+(function (root) {
+  function detectSiteUrl() {
+    const path = location.pathname || "";
+    const site = path.match(/^(.*?\/(?:sites|teams)\/[^/]+)/i);
+    if (site) return location.origin + site[1];
+    if (/sharepoint\./i.test(location.hostname)) return location.origin;
+    return "";
+  }
+
+  function isSharePointHost() {
+    return /sharepoint\./i.test(location.hostname || "");
+  }
+
+  function joinUrl(siteUrl, path) {
+    return String(siteUrl || "").replace(/\/+$/, "") + path;
+  }
+
+  function listUrl(siteUrl, listTitle, suffix) {
+    const title = encodeURIComponent(listTitle);
+    return joinUrl(siteUrl, `/_api/web/lists/getbytitle('${title}')${suffix || ""}`);
+  }
+
+  async function parseBody(response) {
+    const text = await response.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      return { raw: text };
+    }
+  }
+
+  function errorMessage(payload, status) {
+    if (payload && payload.error && payload.error.message) {
+      const msg = payload.error.message;
+      return typeof msg === "string" ? msg : msg.value || `SharePoint error ${status}`;
+    }
+    if (payload && payload["odata.error"] && payload["odata.error"].message) {
+      return payload["odata.error"].message.value || `SharePoint error ${status}`;
+    }
+    return `SharePoint request failed (${status})`;
+  }
+
+  function SharePointStore(settings) {
+    this.settings = settings;
+    this.digest = null;
+    this.digestAt = 0;
+  }
+
+  SharePointStore.prototype.siteUrl = function () {
+    return (this.settings.sharepointSiteUrl || detectSiteUrl() || "").replace(/\/+$/, "");
+  };
+
+  SharePointStore.prototype.headers = function (digest, extra) {
+    const headers = {
+      Accept: "application/json;odata=nometadata",
+      "Content-Type": "application/json;odata=nometadata",
+      "OData-Version": "4.0"
+    };
+    if (digest) headers["X-RequestDigest"] = digest;
+    return Object.assign(headers, extra || {});
+  };
+
+  SharePointStore.prototype.request = async function (url, options) {
+    const response = await fetch(url, options);
+    const payload = await parseBody(response);
+    if (!response.ok) {
+      throw new Error(errorMessage(payload, response.status));
+    }
+    return payload;
+  };
+
+  SharePointStore.prototype.getDigest = async function () {
+    const now = Date.now();
+    if (this.digest && now - this.digestAt < 20 * 60 * 1000) return this.digest;
+    const payload = await this.request(joinUrl(this.siteUrl(), "/_api/contextinfo"), {
+      method: "POST",
+      headers: this.headers(),
+      credentials: "same-origin"
+    });
+    this.digest = payload.FormDigestValue || payload.formDigestValue;
+    this.digestAt = now;
+    if (!this.digest) throw new Error("SharePoint did not return a request digest.");
+    return this.digest;
+  };
+
+  SharePointStore.prototype.getItems = async function (listTitle) {
+    const items = [];
+    let url = listUrl(this.siteUrl(), listTitle, "/items?$top=2000");
+    while (url) {
+      const payload = await this.request(url, {
+        method: "GET",
+        headers: this.headers(),
+        credentials: "same-origin"
+      });
+      const page = Array.isArray(payload.value) ? payload.value : [];
+      items.push.apply(items, page);
+      url = payload["@odata.nextLink"] || payload["odata.nextLink"] || "";
+    }
+    return items;
+  };
+
+  function compactFields(fields) {
+    const out = {};
+    Object.keys(fields).forEach((key) => {
+      if (fields[key] !== null && fields[key] !== undefined) out[key] = fields[key];
+    });
+    return out;
+  }
+
+  SharePointStore.prototype.createItem = async function (listTitle, fields) {
+    const digest = await this.getDigest();
+    return this.request(listUrl(this.siteUrl(), listTitle, "/items"), {
+      method: "POST",
+      headers: this.headers(digest),
+      credentials: "same-origin",
+      body: JSON.stringify(compactFields(fields))
+    });
+  };
+
+  SharePointStore.prototype.updateItem = async function (listTitle, id, fields) {
+    const digest = await this.getDigest();
+    return this.request(listUrl(this.siteUrl(), listTitle, `/items(${id})`), {
+      method: "POST",
+      headers: this.headers(digest, {
+        "IF-MATCH": "*",
+        "X-HTTP-Method": "MERGE"
+      }),
+      credentials: "same-origin",
+      body: JSON.stringify(compactFields(fields))
+    });
+  };
+
+  SharePointStore.prototype.deleteItem = async function (listTitle, id) {
+    const digest = await this.getDigest();
+    return this.request(listUrl(this.siteUrl(), listTitle, `/items(${id})`), {
+      method: "POST",
+      headers: this.headers(digest, {
+        "IF-MATCH": "*",
+        "X-HTTP-Method": "DELETE"
+      }),
+      credentials: "same-origin"
+    });
+  };
+
+  SharePointStore.prototype.upsert = async function (listTitle, record, fields) {
+    if (record.id && /^\d+$/.test(String(record.id))) {
+      await this.updateItem(listTitle, record.id, fields);
+      return String(record.id);
+    }
+    const created = await this.createItem(listTitle, fields);
+    return String(created.Id || created.ID);
+  };
+
+  SharePointStore.prototype.test = async function () {
+    const site = this.siteUrl();
+    if (!site) throw new Error("Enter the SharePoint site URL first (https://tenant.sharepoint.com/sites/yoursite).");
+    await this.getDigest();
+    const lists = [
+      this.settings.listWorkCenters,
+      this.settings.listPeople,
+      this.settings.listWorkOrders,
+      this.settings.listAbsences
+    ].filter(Boolean);
+    for (const title of lists) {
+      await this.request(listUrl(site, title, "?$select=Title,ItemCount"), {
+        method: "GET",
+        headers: this.headers(),
+        credentials: "same-origin"
+      });
+    }
+    return { site, lists };
+  };
+
+  function mapCenter(item) {
+    return {
+      id: String(item.Id),
+      name: item.Title || "",
+      notes: item.Notes || "",
+      color: item.Color || "#1f6f6a"
+    };
+  }
+
+  function mapPerson(item) {
+    return {
+      id: String(item.Id),
+      name: item.Title || "",
+      workCenterId: item.WorkCenterId ? String(item.WorkCenterId) : "",
+      hoursPerWeek: Number(item.HoursPerWeek) || 0,
+      workDays: item.WorkDays == null ? 5 : Number(item.WorkDays),
+      worksWeekends: Boolean(item.WorksWeekends),
+      efficiency: item.Efficiency == null ? 100 : Number(item.Efficiency),
+      notes: item.Notes || ""
+    };
+  }
+
+  function mapAbsence(item) {
+    return {
+      id: String(item.Id),
+      personId: item.PersonId ? String(item.PersonId) : "",
+      type: item.AbsenceType || item.Type || "pto",
+      startDate: item.StartDate ? String(item.StartDate).slice(0, 10) : "",
+      endDate: item.EndDate ? String(item.EndDate).slice(0, 10) : "",
+      hours: item.Hours == null || Number(item.Hours) === 0 ? "" : Number(item.Hours),
+      includeWeekends: Boolean(item.IncludeWeekends),
+      notes: item.Notes || ""
+    };
+  }
+
+  function mapOrder(item) {
+    const due = item.DueDate ? String(item.DueDate).slice(0, 10) : "";
+    return {
+      id: String(item.Id),
+      number: item.Title || "",
+      title: item.JobName || "",
+      workCenterId: item.WorkCenterId ? String(item.WorkCenterId) : "",
+      hours: Number(item.Hours) || 0,
+      remainingHours: item.RemainingHours == null ? Number(item.Hours) || 0 : Number(item.RemainingHours) || 0,
+      dueDate: due,
+      status: item.Status || "queued",
+      priority: item.Priority || "medium",
+      notes: item.Notes || ""
+    };
+  }
+
+  function centerName(data, id) {
+    const wc = (data.workCenters || []).find((c) => String(c.id) === String(id));
+    return wc ? wc.name : "";
+  }
+
+  SharePointStore.prototype.load = async function () {
+    const [centers, people, orders, absences] = await Promise.all([
+      this.getItems(this.settings.listWorkCenters),
+      this.getItems(this.settings.listPeople),
+      this.getItems(this.settings.listWorkOrders),
+      this.getItems(this.settings.listAbsences)
+    ]);
+    return CapacityStore.normalizeData({
+      version: 1,
+      workCenters: centers.map(mapCenter),
+      people: people.map(mapPerson),
+      workOrders: orders.map(mapOrder),
+      absences: absences.map(mapAbsence)
+    });
+  };
+
+  SharePointStore.prototype.saveCenter = async function (center) {
+    const id = await this.upsert(this.settings.listWorkCenters, center, {
+      Title: center.name,
+      Notes: center.notes || "",
+      Color: center.color || "#1f6f6a"
+    });
+    return Object.assign({}, center, { id });
+  };
+
+  SharePointStore.prototype.savePerson = async function (person, data) {
+    const id = await this.upsert(this.settings.listPeople, person, {
+      Title: person.name,
+      WorkCenterId: person.workCenterId ? Number(person.workCenterId) || null : null,
+      WorkCenterName: centerName(data, person.workCenterId),
+      HoursPerWeek: Number(person.hoursPerWeek) || 0,
+      WorkDays: Number(person.workDays) || 5,
+      WorksWeekends: Boolean(person.worksWeekends),
+      Efficiency: person.efficiency == null ? 100 : Number(person.efficiency),
+      Notes: person.notes || ""
+    });
+    return Object.assign({}, person, { id });
+  }
+
+  function personName(data, id) {
+    const person = (data.people || []).find((p) => String(p.id) === String(id));
+    return person ? person.name : "";
+  }
+
+  SharePointStore.prototype.saveAbsence = async function (absence, data) {
+    const start = absence.startDate ? `${absence.startDate}T00:00:00` : null;
+    const end = absence.endDate ? `${absence.endDate}T00:00:00` : start;
+    const fields = {
+      Title: `${absence.type || "pto"} ${absence.startDate || ""}`.trim(),
+      PersonId: absence.personId ? Number(absence.personId) || null : null,
+      PersonName: personName(data, absence.personId),
+      AbsenceType: absence.type || "pto",
+      StartDate: start,
+      EndDate: end,
+      IncludeWeekends: Boolean(absence.includeWeekends),
+      Notes: absence.notes || ""
+    };
+    fields.Hours = absence.hours === "" || absence.hours == null ? 0 : Number(absence.hours);
+    const id = await this.upsert(this.settings.listAbsences, absence, fields);
+    return Object.assign({}, absence, { id });
+  };
+
+  SharePointStore.prototype.saveOrder = async function (order, data) {
+    const due = order.dueDate ? `${order.dueDate}T00:00:00` : null;
+    const id = await this.upsert(this.settings.listWorkOrders, order, {
+      Title: order.number,
+      JobName: order.title || "",
+      WorkCenterId: order.workCenterId ? Number(order.workCenterId) || null : null,
+      WorkCenterName: centerName(data, order.workCenterId),
+      Hours: Number(order.hours) || 0,
+      RemainingHours: Number(order.remainingHours) || 0,
+      DueDate: due,
+      Status: order.status || "queued",
+      Priority: order.priority || "medium",
+      Notes: order.notes || ""
+    });
+    return Object.assign({}, order, { id });
+  };
+
+  SharePointStore.prototype.deleteCenter = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listWorkCenters, id);
+  };
+
+  SharePointStore.prototype.deletePerson = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listPeople, id);
+  };
+
+  SharePointStore.prototype.deleteOrder = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listWorkOrders, id);
+  };
+
+  SharePointStore.prototype.deleteAbsence = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listAbsences, id);
+  };
+
+  SharePointStore.prototype.replaceAll = async function (data) {
+    const current = await this.load();
+    for (const absence of current.absences || []) await this.deleteAbsence(absence.id);
+    for (const wo of current.workOrders) await this.deleteOrder(wo.id);
+    for (const person of current.people) await this.deletePerson(person.id);
+    for (const wc of current.workCenters) await this.deleteCenter(wc.id);
+
+    const idMap = Object.create(null);
+    const personMap = Object.create(null);
+    const next = CapacityStore.emptyData();
+    for (const wc of data.workCenters) {
+      const saved = await this.saveCenter(Object.assign({}, wc, { id: "" }));
+      idMap[String(wc.id)] = saved.id;
+      next.workCenters.push(saved);
+    }
+    const mapped = { workCenters: next.workCenters, people: [], workOrders: [], absences: [] };
+    for (const person of data.people) {
+      const saved = await this.savePerson(
+        Object.assign({}, person, {
+          id: "",
+          workCenterId: idMap[String(person.workCenterId)] || ""
+        }),
+        mapped
+      );
+      personMap[String(person.id)] = saved.id;
+      next.people.push(saved);
+      mapped.people = next.people;
+    }
+    for (const wo of data.workOrders) {
+      const saved = await this.saveOrder(
+        Object.assign({}, wo, {
+          id: "",
+          workCenterId: idMap[String(wo.workCenterId)] || ""
+        }),
+        mapped
+      );
+      next.workOrders.push(saved);
+    }
+    for (const absence of data.absences || []) {
+      const saved = await this.saveAbsence(
+        Object.assign({}, absence, {
+          id: "",
+          personId: personMap[String(absence.personId)] || ""
+        }),
+        mapped
+      );
+      next.absences.push(saved);
+    }
+    return next;
+  };
+
+  root.CapacitySharePoint = {
+    detectSiteUrl,
+    isSharePointHost,
+    SharePointStore
+  };
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+;
+/**
+ * Shared live board. The downloaded HTML file talks to a JSONBin
+ * so everyone opening the same team file sees the same data.
+ */
+(function (root) {
+  const JSONBIN = "https://api.jsonbin.io/v3/b";
+
+  function headers(apiKey, extra) {
+    const h = Object.assign({ "Content-Type": "application/json", Accept: "application/json" }, extra || {});
+    if (apiKey) h["X-Master-Key"] = apiKey;
+    return h;
+  }
+
+  async function parse(response) {
+    const text = await response.text();
+    let body = {};
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch (err) {
+      body = { raw: text };
+    }
+    if (!response.ok) {
+      const msg =
+        (body && (body.message || body.error)) ||
+        `Team board request failed (${response.status})`;
+      throw new Error(msg);
+    }
+    return body;
+  }
+
+  const TeamSync = {
+    async create(apiKey, data) {
+      if (!apiKey) throw new Error("Paste a JSONBin master key first.");
+      const body = await parse(
+        await fetch(JSONBIN, {
+          method: "POST",
+          headers: headers(apiKey, { "X-Bin-Name": "capacity-tracker" }),
+          body: JSON.stringify(data)
+        })
+      );
+      const id = body.metadata && (body.metadata.id || body.metadata.parentId);
+      if (!id) throw new Error("JSONBin did not return a board id.");
+      return { id: String(id), record: body.record || data };
+    },
+
+    async pull(apiKey, binId) {
+      if (!apiKey || !binId) throw new Error("Team board is not configured.");
+      const body = await parse(
+        await fetch(`${JSONBIN}/${encodeURIComponent(binId)}/latest`, {
+          method: "GET",
+          headers: headers(apiKey, { "X-Bin-Meta": "false" })
+        })
+      );
+      return body.record || body;
+    },
+
+    async push(apiKey, binId, data) {
+      if (!apiKey || !binId) throw new Error("Team board is not configured.");
+      const body = await parse(
+        await fetch(`${JSONBIN}/${encodeURIComponent(binId)}`, {
+          method: "PUT",
+          headers: headers(apiKey),
+          body: JSON.stringify(data)
+        })
+      );
+      return body.record || data;
+    },
+
+    bakedConfig() {
+      const baked = root.CAPACITY_SYNC;
+      if (!baked || typeof baked !== "object") return null;
+      if (!baked.apiKey || !baked.binId) return null;
+      return {
+        provider: "jsonbin",
+        apiKey: String(baked.apiKey),
+        binId: String(baked.binId)
+      };
+    },
+
+    injectIntoHtml(html, config) {
+      const open = "<scr" + "ipt>";
+      const close = "</scr" + "ipt>";
+      const tag =
+        open +
+        "window.CAPACITY_SYNC=" +
+        JSON.stringify({
+          provider: "jsonbin",
+          apiKey: config.apiKey,
+          binId: config.binId
+        }) +
+        ";" +
+        close;
+      if (html.indexOf("window.CAPACITY_SYNC=") >= 0) {
+        const re = new RegExp("<script>window\\.CAPACITY_SYNC=[\\s\\S]*?;" + close);
+        return html.replace(re, tag);
+      }
+      if (html.indexOf("<body>") >= 0) return html.replace("<body>", "<body>\n  " + tag);
+      return tag + html;
+    }
+  };
+
+  root.CapacitySync = TeamSync;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+;
+/**
+ * Sign in to Microsoft 365 (including GCC High) from the HTML app.
+ * Device-code flow — works with a public-client app registration.
+ */
+(function (root) {
+  const TOKEN_KEY = "capacity-tracker.token.v1";
+
+  function cloudFromSite(siteUrl) {
+    const gov = /sharepoint\.us/i.test(siteUrl || "") || /microsoftonline\.us/i.test(siteUrl || "");
+    if (gov) {
+      return {
+        login: "https://login.microsoftonline.us",
+        graph: "https://graph.microsoft.us",
+        scope: "https://graph.microsoft.us/Sites.ReadWrite.All offline_access"
+      };
+    }
+    return {
+      login: "https://login.microsoftonline.com",
+      graph: "https://graph.microsoft.com",
+      scope: "https://graph.microsoft.com/Sites.ReadWrite.All offline_access"
+    };
+  }
+
+  function readToken() {
+    try {
+      const raw = sessionStorage.getItem(TOKEN_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function writeToken(token) {
+    try {
+      sessionStorage.setItem(TOKEN_KEY, JSON.stringify(token));
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  function clearToken() {
+    try {
+      sessionStorage.removeItem(TOKEN_KEY);
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  function isExpired(token) {
+    if (!token || !token.access_token) return true;
+    const exp = Number(token.expires_at || 0);
+    return Date.now() > exp - 60 * 1000;
+  }
+
+  async function formPost(url, params) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(params).toString()
+    });
+    const body = await response.json().catch(function () {
+      return {};
+    });
+    if (!response.ok && body.error !== "authorization_pending" && body.error !== "slow_down") {
+      throw new Error(body.error_description || body.error || "Sign-in failed");
+    }
+    return body;
+  }
+
+  const CapacityAuth = {
+    cloudFromSite: cloudFromSite,
+
+    hasToken() {
+      return !isExpired(readToken());
+    },
+
+    getAccessToken() {
+      const token = readToken();
+      return token && !isExpired(token) ? token.access_token : "";
+    },
+
+    signOut() {
+      clearToken();
+    },
+
+    async requestDeviceCode(settings) {
+      const cloud = cloudFromSite(settings.sharepointSiteUrl);
+      const tenant = String(settings.tenantId || "organizations").trim() || "organizations";
+      const clientId = String(settings.clientId || "").trim();
+      if (!clientId) throw new Error("Paste the Application (client) ID from IT first.");
+      const body = await formPost(cloud.login + "/" + tenant + "/oauth2/v2.0/devicecode", {
+        client_id: clientId,
+        scope: cloud.scope
+      });
+      if (!body.device_code) throw new Error(body.error_description || "Could not start sign-in.");
+      return {
+        deviceCode: body.device_code,
+        userCode: body.user_code,
+        verifyUrl: body.verification_uri || body.verification_uri_complete,
+        interval: Math.max(5, Number(body.interval) || 5),
+        expiresIn: Number(body.expires_in) || 900,
+        cloud: cloud,
+        tenant: tenant,
+        clientId: clientId
+      };
+    },
+
+    async waitForToken(challenge) {
+      const url = challenge.cloud.login + "/" + challenge.tenant + "/oauth2/v2.0/token";
+      const started = Date.now();
+      let wait = challenge.interval * 1000;
+      while (Date.now() - started < challenge.expiresIn * 1000) {
+        await new Promise(function (resolve) {
+          setTimeout(resolve, wait);
+        });
+        const body = await formPost(url, {
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+          client_id: challenge.clientId,
+          device_code: challenge.deviceCode
+        });
+        if (body.access_token) {
+          const token = {
+            access_token: body.access_token,
+            refresh_token: body.refresh_token || "",
+            expires_at: Date.now() + Number(body.expires_in || 3600) * 1000
+          };
+          writeToken(token);
+          return token;
+        }
+        if (body.error === "slow_down") wait += 2000;
+      }
+      throw new Error("Sign-in timed out. Try again.");
+    }
+  };
+
+  root.CapacityAuth = CapacityAuth;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+;
+/**
+ * Microsoft Graph adapter for the four Capacity Tracker lists.
+ * Used when the HTML app is signed in (data stays in the SharePoint tenant).
+ */
+(function (root) {
+  function compactFields(fields) {
+    const out = {};
+    Object.keys(fields).forEach(function (key) {
+      if (fields[key] !== null && fields[key] !== undefined) out[key] = fields[key];
+    });
+    return out;
+  }
+
+  function GraphStore(settings, auth) {
+    this.settings = settings;
+    this.auth = auth;
+    this.siteId = "";
+    this.listIds = Object.create(null);
+  }
+
+  GraphStore.prototype.graphRoot = function () {
+    return this.auth.cloudFromSite(this.settings.sharepointSiteUrl).graph + "/v1.0";
+  };
+
+  GraphStore.prototype.request = async function (method, url, body) {
+    const token = this.auth.getAccessToken();
+    if (!token) throw new Error("Sign in to Microsoft 365 first.");
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        Authorization: "Bearer " + token,
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (response.status === 204) return {};
+    const payload = await response.json().catch(function () {
+      return {};
+    });
+    if (!response.ok) {
+      const msg =
+        (payload.error && payload.error.message) ||
+        payload.error_description ||
+        "Graph request failed (" + response.status + ")";
+      throw new Error(msg);
+    }
+    return payload;
+  };
+
+  GraphStore.prototype.ensureSite = async function () {
+    if (this.siteId) return this.siteId;
+    const raw = String(this.settings.sharepointSiteUrl || "").replace(/\/+$/, "");
+    const match = raw.match(/^https?:\/\/([^/]+)(\/sites\/[^/]+|\/teams\/[^/]+)/i);
+    if (!match) throw new Error("SharePoint site URL should look like https://contoso.sharepoint.us/sites/Production");
+    const host = match[1];
+    const path = match[2];
+    const site = await this.request("GET", this.graphRoot() + "/sites/" + host + ":" + path);
+    if (!site.id) throw new Error("Could not find that SharePoint site.");
+    this.siteId = site.id;
+    return this.siteId;
+  };
+
+  GraphStore.prototype.ensureList = async function (title) {
+    if (this.listIds[title]) return this.listIds[title];
+    await this.ensureSite();
+    let payload;
+    try {
+      payload = await this.request(
+        "GET",
+        this.graphRoot() +
+          "/sites/" +
+          this.siteId +
+          "/lists?$filter=displayName eq '" +
+          title.replace(/'/g, "''") +
+          "'"
+      );
+    } catch (err) {
+      payload = await this.request("GET", this.graphRoot() + "/sites/" + this.siteId + "/lists");
+    }
+    const list = (payload.value || []).find(function (item) {
+      return item.displayName === title || item.name === title;
+    });
+    if (!list) {
+      throw new Error('List "' + title + '" was not found on the site. Create the four CT lists first.');
+    }
+    this.listIds[title] = list.id;
+    return list.id;
+  };
+
+  GraphStore.prototype.getItems = async function (listTitle) {
+    const listId = await this.ensureList(listTitle);
+    const items = [];
+    let url =
+      this.graphRoot() +
+      "/sites/" +
+      this.siteId +
+      "/lists/" +
+      listId +
+      "/items?$expand=fields&$top=200";
+    while (url) {
+      const payload = await this.request("GET", url);
+      (payload.value || []).forEach(function (row) {
+        const fields = Object.assign({ Id: row.id, ID: row.id }, row.fields || {});
+        items.push(fields);
+      });
+      url = payload["@odata.nextLink"] || "";
+    }
+    return items;
+  };
+
+  GraphStore.prototype.createItem = async function (listTitle, fields) {
+    const listId = await this.ensureList(listTitle);
+    const created = await this.request(
+      "POST",
+      this.graphRoot() + "/sites/" + this.siteId + "/lists/" + listId + "/items",
+      { fields: compactFields(fields) }
+    );
+    return created.id || (created.fields && created.fields.id);
+  };
+
+  GraphStore.prototype.updateItem = async function (listTitle, id, fields) {
+    const listId = await this.ensureList(listTitle);
+    await this.request(
+      "PATCH",
+      this.graphRoot() + "/sites/" + this.siteId + "/lists/" + listId + "/items/" + id + "/fields",
+      compactFields(fields)
+    );
+    return id;
+  };
+
+  GraphStore.prototype.deleteItem = async function (listTitle, id) {
+    const listId = await this.ensureList(listTitle);
+    await this.request(
+      "DELETE",
+      this.graphRoot() + "/sites/" + this.siteId + "/lists/" + listId + "/items/" + id
+    );
+  };
+
+  GraphStore.prototype.upsert = async function (listTitle, record, fields) {
+    if (record.id && /^\d+$/.test(String(record.id))) {
+      await this.updateItem(listTitle, record.id, fields);
+      return String(record.id);
+    }
+    const created = await this.createItem(listTitle, fields);
+    return String(created);
+  };
+
+  GraphStore.prototype.test = async function () {
+    await this.ensureSite();
+    await this.ensureList(this.settings.listWorkCenters);
+    await this.ensureList(this.settings.listPeople);
+    await this.ensureList(this.settings.listWorkOrders);
+    await this.ensureList(this.settings.listAbsences);
+    return { site: this.settings.sharepointSiteUrl };
+  };
+
+  function mapCenter(item) {
+    return {
+      id: String(item.Id || item.id),
+      name: item.Title || "",
+      notes: item.Notes || "",
+      color: item.Color || "#1f6f6a"
+    };
+  }
+
+  function mapPerson(item) {
+    return {
+      id: String(item.Id || item.id),
+      name: item.Title || "",
+      workCenterId: item.WorkCenterId ? String(item.WorkCenterId) : "",
+      hoursPerWeek: Number(item.HoursPerWeek) || 0,
+      workDays: item.WorkDays == null ? 5 : Number(item.WorkDays),
+      worksWeekends: Boolean(item.WorksWeekends),
+      efficiency: item.Efficiency == null ? 100 : Number(item.Efficiency),
+      notes: item.Notes || ""
+    };
+  }
+
+  function mapAbsence(item) {
+    return {
+      id: String(item.Id || item.id),
+      personId: item.PersonId ? String(item.PersonId) : "",
+      type: item.AbsenceType || item.Type || "pto",
+      startDate: item.StartDate ? String(item.StartDate).slice(0, 10) : "",
+      endDate: item.EndDate ? String(item.EndDate).slice(0, 10) : "",
+      hours: item.Hours == null || Number(item.Hours) === 0 ? "" : Number(item.Hours),
+      includeWeekends: Boolean(item.IncludeWeekends),
+      notes: item.Notes || ""
+    };
+  }
+
+  function mapOrder(item) {
+    const due = item.DueDate ? String(item.DueDate).slice(0, 10) : "";
+    return {
+      id: String(item.Id || item.id),
+      number: item.Title || "",
+      title: item.JobName || "",
+      workCenterId: item.WorkCenterId ? String(item.WorkCenterId) : "",
+      hours: Number(item.Hours) || 0,
+      remainingHours: item.RemainingHours == null ? Number(item.Hours) || 0 : Number(item.RemainingHours) || 0,
+      dueDate: due,
+      status: item.Status || "queued",
+      priority: item.Priority || "medium",
+      notes: item.Notes || ""
+    };
+  }
+
+  function centerName(data, id) {
+    const wc = (data.workCenters || []).find(function (c) {
+      return String(c.id) === String(id);
+    });
+    return wc ? wc.name : "";
+  }
+
+  function personName(data, id) {
+    const person = (data.people || []).find(function (p) {
+      return String(p.id) === String(id);
+    });
+    return person ? person.name : "";
+  }
+
+  GraphStore.prototype.load = async function () {
+    const [centers, people, orders, absences] = await Promise.all([
+      this.getItems(this.settings.listWorkCenters),
+      this.getItems(this.settings.listPeople),
+      this.getItems(this.settings.listWorkOrders),
+      this.getItems(this.settings.listAbsences)
+    ]);
+    return CapacityStore.normalizeData({
+      version: 1,
+      workCenters: centers.map(mapCenter),
+      people: people.map(mapPerson),
+      workOrders: orders.map(mapOrder),
+      absences: absences.map(mapAbsence)
+    });
+  };
+
+  GraphStore.prototype.saveCenter = async function (center) {
+    const id = await this.upsert(this.settings.listWorkCenters, center, {
+      Title: center.name,
+      Notes: center.notes || "",
+      Color: center.color || "#1f6f6a"
+    });
+    return Object.assign({}, center, { id: id });
+  };
+
+  GraphStore.prototype.savePerson = async function (person, data) {
+    const id = await this.upsert(this.settings.listPeople, person, {
+      Title: person.name,
+      WorkCenterId: person.workCenterId ? Number(person.workCenterId) || null : null,
+      WorkCenterName: centerName(data, person.workCenterId),
+      HoursPerWeek: Number(person.hoursPerWeek) || 0,
+      WorkDays: Number(person.workDays) || 5,
+      WorksWeekends: Boolean(person.worksWeekends),
+      Efficiency: person.efficiency == null ? 100 : Number(person.efficiency),
+      Notes: person.notes || ""
+    });
+    return Object.assign({}, person, { id: id });
+  };
+
+  GraphStore.prototype.saveAbsence = async function (absence, data) {
+    const start = absence.startDate ? absence.startDate + "T00:00:00" : null;
+    const end = absence.endDate ? absence.endDate + "T00:00:00" : start;
+    const fields = {
+      Title: (absence.type || "pto") + " " + (absence.startDate || ""),
+      PersonId: absence.personId ? Number(absence.personId) || null : null,
+      PersonName: personName(data, absence.personId),
+      AbsenceType: absence.type || "pto",
+      StartDate: start,
+      EndDate: end,
+      IncludeWeekends: Boolean(absence.includeWeekends),
+      Notes: absence.notes || "",
+      Hours: absence.hours === "" || absence.hours == null ? 0 : Number(absence.hours)
+    };
+    const id = await this.upsert(this.settings.listAbsences, absence, fields);
+    return Object.assign({}, absence, { id: id });
+  };
+
+  GraphStore.prototype.saveOrder = async function (order, data) {
+    const due = order.dueDate ? order.dueDate + "T00:00:00" : null;
+    const id = await this.upsert(this.settings.listWorkOrders, order, {
+      Title: order.number,
+      JobName: order.title || "",
+      WorkCenterId: order.workCenterId ? Number(order.workCenterId) || null : null,
+      WorkCenterName: centerName(data, order.workCenterId),
+      Hours: Number(order.hours) || 0,
+      RemainingHours: Number(order.remainingHours) || 0,
+      DueDate: due,
+      Status: order.status || "queued",
+      Priority: order.priority || "medium",
+      Notes: order.notes || ""
+    });
+    return Object.assign({}, order, { id: id });
+  };
+
+  GraphStore.prototype.deleteCenter = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listWorkCenters, id);
+  };
+
+  GraphStore.prototype.deletePerson = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listPeople, id);
+  };
+
+  GraphStore.prototype.deleteOrder = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listWorkOrders, id);
+  };
+
+  GraphStore.prototype.deleteAbsence = async function (id) {
+    if (!/^\d+$/.test(String(id))) return;
+    await this.deleteItem(this.settings.listAbsences, id);
+  };
+
+  GraphStore.prototype.replaceAll = async function (data) {
+    const current = await this.load();
+    for (const absence of current.absences || []) await this.deleteAbsence(absence.id);
+    for (const wo of current.workOrders) await this.deleteOrder(wo.id);
+    for (const person of current.people) await this.deletePerson(person.id);
+    for (const wc of current.workCenters) await this.deleteCenter(wc.id);
+    const idMap = Object.create(null);
+    const personMap = Object.create(null);
+    const next = CapacityStore.emptyData();
+    for (const wc of data.workCenters) {
+      const saved = await this.saveCenter(Object.assign({}, wc, { id: "" }));
+      idMap[String(wc.id)] = saved.id;
+      next.workCenters.push(saved);
+    }
+    const mapped = { workCenters: next.workCenters, people: [], workOrders: [], absences: [] };
+    for (const person of data.people) {
+      const saved = await this.savePerson(
+        Object.assign({}, person, { id: "", workCenterId: idMap[String(person.workCenterId)] || "" }),
+        mapped
+      );
+      personMap[String(person.id)] = saved.id;
+      next.people.push(saved);
+      mapped.people = next.people;
+    }
+    for (const wo of data.workOrders) {
+      next.workOrders.push(
+        await this.saveOrder(
+          Object.assign({}, wo, { id: "", workCenterId: idMap[String(wo.workCenterId)] || "" }),
+          mapped
+        )
+      );
+    }
+    for (const absence of data.absences || []) {
+      next.absences.push(
+        await this.saveAbsence(
+          Object.assign({}, absence, { id: "", personId: personMap[String(absence.personId)] || "" }),
+          mapped
+        )
+      );
+    }
+    return next;
+  };
+
+  root.CapacityGraph = { GraphStore: GraphStore };
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+;
+/**
+ * Shared board stored as capacity-data.json next to the HTML file.
+ * Put that file in a OneDrive-synced SharePoint folder so everyone
+ * writes the same document. No IT, no extra cloud.
+ */
+(function (root) {
+  const DB_NAME = "capacity-tracker-file";
+  const STORE = "handles";
+
+  function openDb() {
+    return new Promise(function (resolve, reject) {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function () {
+        req.result.createObjectStore(STORE);
+      };
+      req.onsuccess = function () {
+        resolve(req.result);
+      };
+      req.onerror = function () {
+        reject(req.error);
+      };
+    });
+  }
+
+  async function idbGet(key) {
+    try {
+      const db = await openDb();
+      return await new Promise(function (resolve, reject) {
+        const tx = db.transaction(STORE, "readonly");
+        const r = tx.objectStore(STORE).get(key);
+        r.onsuccess = function () {
+          resolve(r.result || null);
+        };
+        r.onerror = function () {
+          reject(r.error);
+        };
+      });
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function idbSet(key, value) {
+    try {
+      const db = await openDb();
+      await new Promise(function (resolve, reject) {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(value, key);
+        tx.oncomplete = resolve;
+        tx.onerror = function () {
+          reject(tx.error);
+        };
+      });
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  const FileStore = {
+    handle: null,
+    lastModified: 0,
+
+    supported() {
+      return typeof window.showOpenFilePicker === "function" && typeof window.showSaveFilePicker === "function";
+    },
+
+    connected() {
+      return Boolean(this.handle);
+    },
+
+    async remember(handle) {
+      this.handle = handle;
+      await idbSet("team", handle);
+      try {
+        const file = await handle.getFile();
+        this.lastModified = file.lastModified;
+      } catch (err) {
+        this.lastModified = 0;
+      }
+    },
+
+    async restore() {
+      if (!this.supported()) return false;
+      const handle = await idbGet("team");
+      if (!handle) return false;
+      if (handle.queryPermission) {
+        let perm = await handle.queryPermission({ mode: "readwrite" });
+        if (perm !== "granted" && handle.requestPermission) {
+          perm = await handle.requestPermission({ mode: "readwrite" });
+        }
+        if (perm !== "granted") return false;
+      }
+      await this.remember(handle);
+      return true;
+    },
+
+    async pickExisting() {
+      if (!this.supported()) {
+        throw new Error("Use Edge or Chrome and start the app with Start-CapacityTracker.bat.");
+      }
+      const picked = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{ description: "Capacity data", accept: { "application/json": [".json"] } }]
+      });
+      await this.remember(picked[0]);
+    },
+
+    async createNew() {
+      if (!this.supported()) {
+        throw new Error("Use Edge or Chrome and start the app with Start-CapacityTracker.bat.");
+      }
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "capacity-data.json",
+        types: [{ description: "Capacity data", accept: { "application/json": [".json"] } }]
+      });
+      await this.remember(handle);
+    },
+
+    async read() {
+      if (!this.handle) throw new Error("No team file connected.");
+      const file = await this.handle.getFile();
+      this.lastModified = file.lastModified;
+      const text = await file.text();
+      if (!text.trim()) return CapacityStore.emptyData();
+      return CapacityStore.normalizeData(JSON.parse(text));
+    },
+
+    async write(data) {
+      if (!this.handle) throw new Error("No team file connected.");
+      const writable = await this.handle.createWritable();
+      await writable.write(JSON.stringify(data, null, 2));
+      await writable.close();
+      const file = await this.handle.getFile();
+      this.lastModified = file.lastModified;
+    },
+
+    async changedOnDisk() {
+      if (!this.handle) return false;
+      const file = await this.handle.getFile();
+      return file.lastModified > this.lastModified;
+    }
+  };
+
+  root.CapacityFileStore = FileStore;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+;
+(function () {
+  function bootFailed(err) {
+    const host = document.getElementById("app") || document.body;
+    const message = err && err.message ? err.message : String(err || "Unknown error");
+    host.innerHTML =
+      '<div style="font-family:Segoe UI,sans-serif;padding:1.5rem;max-width:40rem">' +
+      "<h2>Capacity Tracker could not start</h2>" +
+      "<p>SharePoint loaded the page but a script failed. Open this file directly, or use the single-file <code>CapacityTracker.html</code> upload.</p>" +
+      "<pre style=\"white-space:pre-wrap;background:#f3efe6;padding:0.75rem\">" +
+      String(message).replace(/[&<>]/g, function (ch) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch];
+      }) +
+      "</pre></div>";
+    console.error(err);
+  }
+
+  const Calc = window.CapacityCalc;
+  const Store = window.CapacityStore;
+  const SP = window.CapacitySharePoint;
+  const Sync = window.CapacitySync;
+  const Auth = window.CapacityAuth;
+  const Graph = window.CapacityGraph;
+  const Files = window.CapacityFileStore;
+  if (!Calc || !Store || !SP || !Sync || !Auth || !Graph || !Files) {
+    bootFailed(new Error("Required scripts did not load."));
+    return;
+  }
+
+  const state = {
+    view: "dashboard",
+    data: Store.emptyData(),
+    settings: Store.DEFAULT_SETTINGS,
+    query: "",
+    centerFilter: "",
+    statusFilter: "",
+    employeeId: "",
+    modal: null,
+    toasts: [],
+    busy: false,
+    error: "",
+    repo: null,
+    syncState: "off",
+    syncError: "",
+    pushTimer: 0,
+    pollTimer: 0,
+    filePoll: 0,
+    filePushTimer: 0,
+    listPoll: 0,
+    signIn: null
+  };
+
+  const VIEWS = [
+    ["dashboard", "Dashboard"],
+    ["centers", "Work centers"],
+    ["planning", "Planning"]
+  ];
+
+  const STATUS_LABEL = {
+    queued: "Queued",
+    "in-progress": "In progress",
+    "on-hold": "On hold",
+    complete: "Complete"
+  };
+
+  const PRIORITY_LABEL = { high: "High", medium: "Medium", low: "Low" };
+
+  function $(sel, root) {
+    return (root || document).querySelector(sel);
+  }
+
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[ch]));
+  }
+
+  function toast(message, kind) {
+    const item = { id: Store.uid("t"), message, kind: kind || "ok" };
+    state.toasts.push(item);
+    renderToasts();
+    setTimeout(() => {
+      state.toasts = state.toasts.filter((t) => t.id !== item.id);
+      renderToasts();
+    }, 3800);
+  }
+
+  function renderToasts() {
+    const host = $("#toasts");
+    if (!host) return;
+    host.innerHTML = state.toasts
+      .map((t) => `<div class="toast ${t.kind === "error" ? "error" : ""}">${esc(t.message)}</div>`)
+      .join("");
+  }
+
+  function summary() {
+    return Calc.summarize(state.data, {
+      planningWeeks: state.settings.planningWeeks,
+      weekStartsOn: state.settings.weekStartsOn,
+      loadMode: state.settings.loadMode
+    });
+  }
+
+  function centerById(id) {
+    return state.data.workCenters.find((c) => String(c.id) === String(id));
+  }
+
+  function centerName(id) {
+    const wc = centerById(id);
+    return wc ? wc.name : "Unassigned";
+  }
+
+  function centerOptions(selected, includeBlank) {
+    const blank = includeBlank ? `<option value="">${includeBlank}</option>` : "";
+    return (
+      blank +
+      state.data.workCenters
+        .map(
+          (c) =>
+            `<option value="${esc(c.id)}" ${String(c.id) === String(selected) ? "selected" : ""}>${esc(c.name)}</option>`
+        )
+        .join("")
+    );
+  }
+
+  function markSvg() {
+    return `<svg class="mark" viewBox="0 0 36 36" aria-hidden="true">
+      <rect width="36" height="36" rx="10" fill="#0e3d3a"/>
+      <path d="M8 24V12h3.2v12H8zm8.4 0v-8.4H20V24h-3.6zM25 24V9h3.2v15H25z" fill="#f4efe4"/>
+    </svg>`;
+  }
+
+  function storageLabel() {
+    if (state.settings.storage === "file" && Files.connected()) {
+      return state.syncState === "live" ? "Shared file (live)" : "Shared file";
+    }
+    if (state.settings.storage === "team" && state.settings.teamBinId) {
+      return state.syncState === "live" ? "Live team board" : "Team board";
+    }
+    if (state.settings.storage === "sharepoint") {
+      return Auth.hasToken() ? "SharePoint (signed in)" : "SharePoint (sign in)";
+    }
+    return "This browser only";
+  }
+
+  function fileEnabled() {
+    return state.settings.storage === "file" && Files.connected();
+  }
+
+  function teamEnabled() {
+    return state.settings.storage === "team" && state.settings.teamApiKey && state.settings.teamBinId;
+  }
+
+  function renderShell() {
+    const app = $("#app");
+    app.innerHTML = `
+      <header class="top">
+        <div class="top-row">
+          <div class="brand">
+            ${markSvg()}
+            <div>
+              <h1>Capacity Tracker</h1>
+              <p>${esc(state.settings.siteName)} · ${esc(storageLabel())}</p>
+            </div>
+          </div>
+          <div class="top-actions">
+            ${
+              state.settings.storage === "sharepoint"
+                ? Auth.hasToken()
+                  ? `<button class="btn ghost" data-action="sp-signout">Sign out</button>`
+                  : `<button class="btn" data-action="sp-signin">Sign in to SharePoint</button>`
+                : ""
+            }
+            <button class="btn ghost" data-action="export-json">Export</button>
+            <button class="btn ghost" data-action="import">Import</button>
+            <button class="btn primary" data-action="quick-add">New work order</button>
+          </div>
+        </div>
+        <nav class="tabs" id="suite-tabs">
+          <a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>
+          <a class="tab" href="CapacityTracker.html#planning">Planning</a>
+          <a class="tab" href="WorkOrders.html">Work Orders</a>
+          <a class="tab" href="WipBoard.html">WIP Board</a>
+          <a class="tab" href="WorkInstructions.html">Work Instructions</a>
+          <a class="tab" href="Analytics.html">Analytics</a>
+          <a class="tab" href="Settings.html">Settings</a>
+        </nav>
+      </header>
+      ${sharePointBanner() ? `<div class="wrap" style="padding-bottom:0">${sharePointBanner()}</div>` : ""}
+      <main class="wrap ${state.busy ? "busy" : ""}" id="main"></main>
+      <div class="toasts" id="toasts"></div>
+      <dialog id="modal"></dialog>
+    `;
+    renderToasts();
+    renderView();
+    if (state.modal) openModal(state.modal);
+  }
+
+  function renderView() {
+    const main = $("#main");
+    if (!main) return;
+    const view = {
+      dashboard: renderDashboard,
+      centers: renderCenters,
+      people: renderPeople,
+      employee: renderEmployee,
+      orders: renderOrders,
+      planning: renderPlanning,
+      settings: renderSettings
+    }[state.view] || renderDashboard;
+    main.innerHTML = view();
+  }
+
+  function sharePointBanner() {
+    if (state.signIn) {
+      return `<div class="banner">
+        <span>Sign in: open <a href="${esc(state.signIn.verifyUrl)}" target="_blank" rel="noopener">${esc(state.signIn.verifyUrl)}</a> and enter <strong>${esc(state.signIn.userCode)}</strong></span>
+      </div>`;
+    }
+    if (state.settings.storage === "sharepoint" && !Auth.hasToken()) {
+      return `<div class="banner warn">
+        <span>This HTML page is the app. Data lives in SharePoint lists on Production. Sign in with your work account.</span>
+        <button class="btn small" data-action="sp-signin">Sign in</button>
+      </div>`;
+    }
+    if (state.settings.storage === "file" && !Files.connected()) {
+      return `<div class="banner warn">
+        <span>Connect capacity-data.json (keep it in the synced SharePoint folder) so everyone shares one board.</span>
+        <button class="btn small" data-action="file-open">Open team file</button>
+      </div>`;
+    }
+    return "";
+  }
+
+  function kpi(label, value, hint, level) {
+    return `<article class="kpi ${level || ""}">
+      <div class="label"><span>${esc(label)}</span></div>
+      <div class="value">${value}</div>
+      <div class="hint">${hint || ""}</div>
+    </article>`;
+  }
+
+  function renderDashboard() {
+    const s = summary();
+    const t = s.totals;
+    const empty = !state.data.workCenters.length;
+    if (empty) {
+      return `<section class="empty">
+          <h3>No work centers yet</h3>
+          <p>Create a work center, add employees on the roster, assign them to a center, then load work orders against that capacity.</p>
+          <div class="filters" style="justify-content:center">
+            <button class="btn primary" data-action="edit-center" data-id="">New work center</button>
+            <button class="btn" data-action="demo">Load sample shop</button>
+          </div>
+        </section>`;
+    }
+
+    const upcoming = t.orders
+      .filter((wo) => Calc.isOpen(wo) && wo.dueDate)
+      .slice()
+      .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))
+      .slice(0, 8);
+
+    return `<div class="page-head">
+        <div>
+          <h2>This week's capacity</h2>
+          <p class="lede">${esc(s.weeks[0].label)} · hours land in the ${state.settings.loadMode === "spread" ? "weeks leading up to the due date" : "week of the due date"}.</p>
+        </div>
+      </div>
+      <section class="kpis">
+        ${kpi("This week capacity", `${Calc.formatHours(t.thisWeekCapacity)}h`, t.thisWeekTimeOff ? `${Calc.formatHours(t.weeklyCapacity)}h roster · −${Calc.formatHours(t.thisWeekTimeOff)}h out` : `${t.headcount} people across ${s.centers.length} centers`)}
+        ${kpi("This week load", `${Calc.formatHours(t.thisWeekLoad)}h`, `${Calc.formatHours(t.availableThisWeek)}h remaining`, t.thisWeekLevel === "over" ? "over" : "")}
+        ${kpi("Utilization", esc(Calc.formatUtil(t.thisWeekUtil)), levelWords(t.thisWeekLevel), t.thisWeekLevel === "over" || t.thisWeekLevel === "tight" ? t.thisWeekLevel : "")}
+        ${kpi("Overdue", `${Calc.formatHours(t.overdueHours)}h`, `${t.overdueOrders.length} open ${t.overdueOrders.length === 1 ? "order" : "orders"}`, t.overdueHours > 0 ? "over" : "")}
+      </section>
+      <div class="grid-2">
+        <section class="card">
+          <h3>Work centers</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Center</th>
+                  <th class="num">People</th>
+                  <th class="num">Capacity</th>
+                  <th>This week</th>
+                  <th class="num">Open WO</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${s.centers
+                  .map(
+                    (c) => `<tr>
+                      <td><span class="center-dot" style="background:${esc(c.color)}"></span><button class="linkish" data-action="view" data-view="planning" data-center="${esc(c.id)}">${esc(c.name)}</button></td>
+                      <td class="num">${c.headcount}</td>
+                      <td class="num">${Calc.formatHours(c.weeklyCapacity)}h</td>
+                      <td>${utilCell(c.thisWeekLoad, c.thisWeekCapacity, c.thisWeekUtil, c.thisWeekLevel)}</td>
+                      <td class="num">${c.openCount}</td>
+                    </tr>`
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card stack">
+          ${renderOutThisWeek(s)}
+          <h3>${s.atRisk.length ? "At risk & overdue" : "Upcoming due dates"}</h3>
+          ${
+            s.atRisk.length
+              ? s.atRisk
+                  .slice(0, 8)
+                  .map(
+                    (row) => `<div class="list-item">
+                      <div>
+                        <strong>${esc(row.wo.number)}</strong>
+                        <div class="tiny muted">${esc(row.wo.title || "—")} · ${esc(row.workCenter.name)}</div>
+                      </div>
+                      <div class="tiny" style="text-align:right">
+                        <span class="pill ${row.overdue ? "over" : "tight"}">${row.overdue ? "Overdue" : "Overloaded week"}</span>
+                        <div class="muted">${esc(row.wo.dueDate || "No date")} · ${Calc.formatHours(Calc.remainingHours(row.wo))}h</div>
+                      </div>
+                    </div>`
+                  )
+                  .join("")
+              : upcoming
+                  .map(
+                    (wo) => `<div class="list-item">
+                      <div>
+                        <strong>${esc(wo.number)}</strong>
+                        <div class="tiny muted">${esc(wo.title || "—")} · ${esc(centerName(wo.workCenterId))}</div>
+                      </div>
+                      <div class="tiny muted">${esc(wo.dueDate)} · ${Calc.formatHours(Calc.remainingHours(wo))}h</div>
+                    </div>`
+                  )
+                  .join("") || `<p class="muted">No open work orders.</p>`
+          }
+        </section>
+      </div>`;
+  }
+
+  const ABSENCE_LABEL = { pto: "PTO", sick: "Sick", other: "Other" };
+
+  function personById(id) {
+    return state.data.people.find((p) => String(p.id) === String(id));
+  }
+
+  function absencesFor(personId) {
+    return (state.data.absences || [])
+      .filter((a) => String(a.personId) === String(personId))
+      .sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)));
+  }
+
+  function renderOutThisWeek(s) {
+    const week = s.weeks[0];
+    if (!week) return "";
+    const rows = state.data.people
+      .map((p) => {
+        const br = Calc.personWeekBreakdown(p, state.data.absences, week);
+        return br.off > 0 ? { person: p, br } : null;
+      })
+      .filter(Boolean);
+    if (!rows.length) return "";
+    return `<div class="out-block">
+      <h3>Out this week</h3>
+      ${rows
+        .map(
+          (row) => `<div class="list-item">
+            <div>
+              <button class="linkish" data-action="open-employee" data-id="${esc(row.person.id)}">${esc(row.person.name)}</button>
+              <div class="tiny muted">${esc(centerName(row.person.workCenterId))}</div>
+            </div>
+            <div class="tiny" style="text-align:right">
+              <span class="pill tight">−${Calc.formatHours(row.br.off)}h</span>
+              <div class="muted">${Calc.formatHours(row.br.available)}h left</div>
+            </div>
+          </div>`
+        )
+        .join("")}
+    </div>`;
+  }
+
+  function levelWords(level) {
+    return {
+      over: "Over capacity",
+      tight: "Tight — over 85%",
+      healthy: "Healthy",
+      light: "Light load",
+      none: "No load this week"
+    }[level] || "";
+  }
+
+  function utilCell(load, cap, util, level) {
+    const pct = Number.isFinite(util) ? Math.min(util * 100, 100) : load > 0 ? 100 : 0;
+    return `<div class="util">
+      <div class="bar ${level}"><span style="width:${pct}%"></span></div>
+      <span class="pill ${level}">${esc(Calc.formatUtil(util))}</span>
+    </div>
+    <div class="tiny muted">${Calc.formatHours(load)} / ${Calc.formatHours(cap)}h</div>`;
+  }
+
+  function renderCenters() {
+    const s = summary();
+    if (!s.centers.length) {
+      return `<section class="empty">
+        <h3>Create a work center</h3>
+        <p>A work center is a crew or machine group. Assign employees from the roster; capacity is their hours minus PTO and sick time.</p>
+        <button class="btn primary" data-action="edit-center" data-id="">New work center</button>
+      </section>`;
+    }
+    return `<div class="page-head">
+        <div>
+          <h2>Work centers</h2>
+          <p class="lede">${s.centers.length} centers · ${Calc.formatHours(s.totals.thisWeekCapacity)}h available this week</p>
+        </div>
+        <button class="btn primary" data-action="edit-center" data-id="">New work center</button>
+      </div>
+      <div class="cards">
+        ${s.centers
+          .map((c) => {
+            const people = state.data.people.filter((p) => String(p.workCenterId) === c.id);
+            return `<article class="card wc-card">
+              <header>
+                <div>
+                  <h3><span class="center-dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</h3>
+                  <div class="tiny muted">${esc(c.notes || "No notes")}</div>
+                </div>
+                <span class="pill ${c.thisWeekLevel}">${esc(Calc.formatUtil(c.thisWeekUtil))}</span>
+              </header>
+              <div class="meta">
+                <div><span class="k">People</span><span class="v">${c.headcount}</span></div>
+                <div><span class="k">This week cap.</span><span class="v">${Calc.formatHours(c.thisWeekCapacity)}h</span></div>
+                <div><span class="k">This week load</span><span class="v">${Calc.formatHours(c.thisWeekLoad)}h</span></div>
+                <div><span class="k">Open orders</span><span class="v">${c.openCount}</span></div>
+              </div>
+              <div class="tiny muted">${
+                people.length
+                  ? people
+                      .map(
+                        (p) =>
+                          `<button class="linkish" data-action="open-employee" data-id="${esc(p.id)}">${esc(p.name)}</button>`
+                      )
+                      .join(", ")
+                  : "No employees assigned — set a work center on the roster"
+              }</div>
+              <div class="row-actions">
+                <button class="btn small" data-action="edit-center" data-id="${esc(c.id)}">Edit</button>
+                <button class="btn small" data-action="view" data-view="people" data-center="${esc(c.id)}">Roster</button>
+                <button class="btn small" data-action="edit-order" data-id="" data-center="${esc(c.id)}">Add WO</button>
+                <button class="btn small danger" data-action="delete-center" data-id="${esc(c.id)}">Delete</button>
+              </div>
+            </article>`;
+          })
+          .join("")}
+      </div>`;
+  }
+
+  function renderPeople() {
+    const week = summary().weeks[0];
+    const rows = state.data.people
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter((p) => {
+        if (state.centerFilter === "__none") return !p.workCenterId;
+        if (state.centerFilter && String(p.workCenterId) !== state.centerFilter) return false;
+        return true;
+      })
+      .filter((p) => !state.query || p.name.toLowerCase().includes(state.query.toLowerCase()));
+
+    return `<div class="page-head">
+        <div>
+          <h2>Employees</h2>
+          <p class="lede">Keep the roster here. Assign a work center from the dropdown, then open a file for PTO and sick time.</p>
+        </div>
+        <div class="filters">
+          <input class="search" data-bind="query" placeholder="Search employees" value="${esc(state.query)}">
+          <select class="field" data-bind="centerFilter">
+            ${centerOptions(state.centerFilter, "All employees")}
+            <option value="__none" ${state.centerFilter === "__none" ? "selected" : ""}>Unassigned</option>
+          </select>
+          <button class="btn primary" data-action="edit-person" data-id="">Add employee</button>
+        </div>
+      </div>
+      ${
+        rows.length
+          ? `<section class="card table-wrap"><table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Work center</th>
+                  <th class="num">Hours / week</th>
+                  <th>This week</th>
+                  <th>Time off</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map((p) => {
+                    const br = week ? Calc.personWeekBreakdown(p, state.data.absences, week) : null;
+                    const next = Calc.upcomingAbsence(p, state.data.absences);
+                    return `<tr>
+                      <td>
+                        <button class="linkish" data-action="open-employee" data-id="${esc(p.id)}"><strong>${esc(p.name)}</strong></button>
+                        ${p.notes ? `<div class="tiny muted">${esc(p.notes)}</div>` : ""}
+                      </td>
+                      <td>
+                        <select class="field compact" data-assign="center" data-id="${esc(p.id)}">
+                          ${centerOptions(p.workCenterId, "Unassigned")}
+                        </select>
+                      </td>
+                      <td class="num">${Calc.formatHours(p.hoursPerWeek)}h<div class="tiny muted">${Calc.formatHours(p.efficiency)}% · ${p.workDays || 5} days${p.worksWeekends ? " · weekends" : ""}</div></td>
+                      <td>${
+                        br
+                          ? `${Calc.formatHours(br.available)}h avail.${
+                              br.off ? `<div class="tiny"><span class="pill tight">−${Calc.formatHours(br.off)}h out</span></div>` : ""
+                            }`
+                          : "—"
+                      }</td>
+                      <td>${
+                        next
+                          ? `<span class="pill ${esc(next.type)}">${ABSENCE_LABEL[next.type] || next.type}</span>
+                             <div class="tiny muted">${esc(next.startDate)}${next.endDate !== next.startDate ? ` – ${esc(next.endDate)}` : ""}</div>`
+                          : `<span class="muted tiny">None upcoming</span>`
+                      }</td>
+                      <td class="row-actions">
+                        <button class="btn small" data-action="open-employee" data-id="${esc(p.id)}">Open file</button>
+                        <button class="btn small danger" data-action="delete-person" data-id="${esc(p.id)}">Remove</button>
+                      </td>
+                    </tr>`;
+                  })
+                  .join("")}
+              </tbody>
+            </table></section>`
+          : `<section class="empty"><h3>No employees yet</h3><p>Add people to the roster first, then assign each one to a work center.</p><button class="btn primary" data-action="edit-person" data-id="">Add employee</button></section>`
+      }`;
+  }
+
+  function renderEmployee() {
+    const person = personById(state.employeeId);
+    if (!person) {
+      return `<section class="empty"><h3>Employee not found</h3><button class="btn" data-action="view" data-view="people">Back to roster</button></section>`;
+    }
+    const s = summary();
+    const absences = absencesFor(person.id);
+    const today = Calc.formatISO(new Date());
+    return `<div class="page-head">
+        <div>
+          <button class="linkish" data-action="view" data-view="people">← Employees</button>
+          <h2>${esc(person.name)}</h2>
+          <p class="lede">Hours, work center, and time off for this person. PTO and sick days reduce that week’s capacity going forward.</p>
+        </div>
+        <button class="btn primary" data-action="edit-absence" data-id="" data-person="${esc(person.id)}">Add time off</button>
+      </div>
+      <div class="grid-2">
+        <section class="card">
+          <h3>Employee file</h3>
+          <form class="form-grid" data-form="employee-profile" data-id="${esc(person.id)}">
+            ${formField("Name", "name", person.name, "required")}
+            <label>Work center
+              <select class="field" name="workCenterId">${centerOptions(person.workCenterId, "Unassigned")}</select>
+            </label>
+            ${formField("Hours per week", "hoursPerWeek", person.hoursPerWeek, 'type="number" min="0" step="0.5" required')}
+            ${formField("Work days / week", "workDays", person.workDays || 5, 'type="number" min="1" max="7" step="1"')}
+            ${formField("Efficiency %", "efficiency", person.efficiency, 'type="number" min="0" max="150" step="1"')}
+            <label class="span-2 check">
+              <input type="checkbox" name="worksWeekends" ${person.worksWeekends ? "checked" : ""}>
+              <span>Works weekends <span class="tiny muted">Saturday and Sunday count as work days for time off. Set work days to 6 or 7 so a PTO day is the right length.</span></span>
+            </label>
+            <label class="span-2">Notes
+              <textarea class="field" name="notes">${esc(person.notes || "")}</textarea>
+            </label>
+            <label>Role
+              <select class="field" name="role">
+                <option value="tech" ${person.role === "tech" || !person.role ? "selected" : ""}>Technician</option>
+                <option value="qa" ${person.role === "qa" ? "selected" : ""}>QA</option>
+                <option value="supervisor" ${person.role === "supervisor" ? "selected" : ""}>Supervisor</option>
+                <option value="admin" ${person.role === "admin" ? "selected" : ""}>Admin</option>
+              </select>
+            </label>
+            <label>PIN status
+              <input class="field" type="text" readonly value="${(person.mustChangePin || person.pin === "1111") ? "Temporary 1111 — must change on login" : (person.pin ? "PIN set (hidden)" : "Default 1111")}" style="background:var(--card-2)">
+            </label>
+            <div class="span-2" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+              <button class="btn primary" type="submit">Save file</button>
+              <button class="btn" type="button" data-action="reset-pin" data-id="${esc(person.id)}">Reset PIN</button>
+              <span class="tiny muted">PIN is never shown after save. Reset generates a new PIN — tell the employee once.</span>
+            </div>
+          </form>
+        </section>
+        <section class="card">
+          <h3>Available hours ahead</h3>
+          <p class="tiny muted">Roster hours minus PTO / sick, then × efficiency.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Week</th><th class="num">Out</th><th class="num">Available</th></tr></thead>
+              <tbody>
+                ${s.weeks
+                  .map((w) => {
+                    const br = Calc.personWeekBreakdown(person, state.data.absences, w);
+                    return `<tr>
+                      <td>${esc(w.label)}${w.isCurrent ? ` <span class="tiny muted">now</span>` : ""}</td>
+                      <td class="num">${br.off ? `−${Calc.formatHours(br.off)}h` : "—"}</td>
+                      <td class="num">${Calc.formatHours(br.available)}h</td>
+                    </tr>`;
+                  })
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+      <section class="card" style="margin-top:0.75rem">
+        <h3>PTO & sick time</h3>
+        ${
+          absences.length
+            ? `<div class="table-wrap"><table>
+                <thead><tr><th>Type</th><th>Dates</th><th class="num">Hours</th><th>Notes</th><th></th></tr></thead>
+                <tbody>
+                  ${absences
+                    .map((a) => {
+                      const past = a.endDate && a.endDate < today;
+                      const weekends = Calc.countsWeekends(person, a);
+                      const hours =
+                        a.hours === "" || a.hours == null
+                          ? `${Calc.formatHours(Calc.hoursPerWorkDay(person) * Calc.weekdayCount(a.startDate, a.endDate, weekends))}h (days)`
+                          : `${Calc.formatHours(a.hours)}h`;
+                      return `<tr class="${past ? "muted" : ""}">
+                        <td><span class="pill ${esc(a.type)}">${ABSENCE_LABEL[a.type] || a.type}</span>${weekends ? ` <span class="pill other">Weekends</span>` : ""}</td>
+                        <td>${esc(a.startDate)}${a.endDate !== a.startDate ? ` – ${esc(a.endDate)}` : ""}</td>
+                        <td class="num">${hours}</td>
+                        <td>${esc(a.notes || "—")}</td>
+                        <td class="row-actions">
+                          <button class="btn small" data-action="edit-absence" data-id="${esc(a.id)}" data-person="${esc(person.id)}">Edit</button>
+                          <button class="btn small danger" data-action="delete-absence" data-id="${esc(a.id)}">Delete</button>
+                        </td>
+                      </tr>`;
+                    })
+                    .join("")}
+                </tbody>
+              </table></div>`
+            : `<p class="muted">No time off on file. Add PTO or sick days so those weeks drop off the planning board.</p>`
+        }
+      </section>`;
+  }
+
+  function matchesOrder(wo) {
+    if (state.centerFilter && String(wo.workCenterId) !== state.centerFilter) return false;
+    if (state.statusFilter === "open" && !Calc.isOpen(wo)) return false;
+    if (state.statusFilter === "overdue" && !Calc.isOverdue(wo)) return false;
+    if (state.statusFilter && state.statusFilter !== "open" && state.statusFilter !== "overdue" && wo.status !== state.statusFilter) {
+      return false;
+    }
+    if (!state.query) return true;
+    const q = state.query.toLowerCase();
+    return [wo.number, wo.title, wo.notes, centerName(wo.workCenterId)].join(" ").toLowerCase().includes(q);
+  }
+
+  function renderOrders() {
+    const rows = state.data.workOrders.filter(matchesOrder).slice().sort((a, b) => {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return String(a.dueDate).localeCompare(String(b.dueDate));
+    });
+
+    return `<div class="page-head">
+        <div>
+          <h2>Work orders</h2>
+          <p class="lede">Projected due date + hours to complete. Complete orders drop out of load.</p>
+        </div>
+        <div class="filters">
+          <input class="search" data-bind="query" placeholder="Search orders" value="${esc(state.query)}">
+          <select class="field" data-bind="centerFilter">${centerOptions(state.centerFilter, "All centers")}</select>
+          <select class="field" data-bind="statusFilter">
+            <option value="">All statuses</option>
+            <option value="open" ${state.statusFilter === "open" ? "selected" : ""}>Open</option>
+            <option value="overdue" ${state.statusFilter === "overdue" ? "selected" : ""}>Overdue</option>
+            <option value="queued" ${state.statusFilter === "queued" ? "selected" : ""}>Queued</option>
+            <option value="in-progress" ${state.statusFilter === "in-progress" ? "selected" : ""}>In progress</option>
+            <option value="on-hold" ${state.statusFilter === "on-hold" ? "selected" : ""}>On hold</option>
+            <option value="complete" ${state.statusFilter === "complete" ? "selected" : ""}>Complete</option>
+          </select>
+          <button class="btn primary" data-action="edit-order" data-id="">New work order</button>
+        </div>
+      </div>
+      ${
+        rows.length
+          ? `<section class="card table-wrap"><table>
+              <thead>
+                <tr>
+                  <th>WO</th>
+                  <th>Work center</th>
+                  <th>Due</th>
+                  <th class="num">Est.</th>
+                  <th class="num">Remaining</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map((wo) => {
+                    const overdue = Calc.isOverdue(wo);
+                    return `<tr>
+                      <td>
+                        <strong>${esc(wo.number)}</strong>
+                        <div class="tiny muted">${esc(wo.title || "—")}</div>
+                      </td>
+                      <td>${esc(centerName(wo.workCenterId))}</td>
+                      <td>${esc(wo.dueDate || "—")}${overdue ? ` <span class="pill over">Overdue</span>` : ""}</td>
+                      <td class="num">${Calc.formatHours(wo.hours)}h</td>
+                      <td class="num">${Calc.isOpen(wo) ? `${Calc.formatHours(Calc.remainingHours(wo))}h` : "—"}</td>
+                      <td><span class="pill ${esc(wo.status)}">${STATUS_LABEL[wo.status] || wo.status}</span> <span class="pill ${esc(wo.priority)}">${PRIORITY_LABEL[wo.priority]}</span></td>
+                      <td class="row-actions">
+                        <button class="btn small" data-action="edit-order" data-id="${esc(wo.id)}">Edit</button>
+                        ${
+                          Calc.isOpen(wo)
+                            ? `<button class="btn small" data-action="complete-order" data-id="${esc(wo.id)}">Done</button>`
+                            : ""
+                        }
+                        <button class="btn small danger" data-action="delete-order" data-id="${esc(wo.id)}">Delete</button>
+                      </td>
+                    </tr>`;
+                  })
+                  .join("")}
+              </tbody>
+            </table></section>`
+          : `<section class="empty"><h3>No work orders match</h3><p>Add a job with a due date and the hours it will take.</p><button class="btn primary" data-action="edit-order" data-id="">New work order</button></section>`
+      }`;
+  }
+
+  function renderPlanning() {
+    const s = summary();
+    const centers = state.centerFilter ? s.centers.filter((c) => c.id === state.centerFilter) : s.centers;
+    if (!s.centers.length) {
+      return `<section class="empty"><h3>Nothing to plan yet</h3><p>Add a work center first.</p></section>`;
+    }
+    return `<div class="page-head">
+        <div>
+          <h2>Planning board</h2>
+          <p class="lede">${state.settings.planningWeeks} weeks · ${state.settings.loadMode === "spread" ? "Hours spread from now through the due week" : "Hours booked in the due week"}. Capacity each week is after PTO and sick time.</p>
+        </div>
+        <div class="filters">
+          <select class="field" data-bind="centerFilter">${centerOptions(state.centerFilter, "All centers")}</select>
+          <button class="btn" data-action="export-plan">Export CSV</button>
+        </div>
+      </div>
+      ${s.totals.overdueHours ? `<div class="banner warn"><span>${Calc.formatHours(s.totals.overdueHours)}h overdue is not in the week grid — finish or redate those jobs first.</span></div>` : ""}
+      <section class="card week-grid">
+        <table>
+          <thead>
+            <tr>
+              <th>Work center</th>
+              <th class="num">Roster / wk</th>
+              ${s.weeks
+                .map(
+                  (w) =>
+                    `<th class="week-head ${w.isCurrent ? "current" : ""}">${esc(w.label)}${w.isCurrent ? "<div class='tiny'>This week</div>" : ""}</th>`
+                )
+                .join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${centers
+              .map((c) => {
+                return `<tr>
+                  <td><span class="center-dot" style="background:${esc(c.color)}"></span><strong>${esc(c.name)}</strong><div class="tiny muted">${c.headcount} people · ${c.openCount} open</div></td>
+                  <td class="num">${Calc.formatHours(c.weeklyCapacity)}h</td>
+                  ${s.weeks
+                    .map((w) => {
+                      const load = c.loadByWeek[w.key] || 0;
+                      const cap = c.capacityByWeek[w.key] || 0;
+                      const off = c.timeOffByWeek[w.key] || 0;
+                      const util = Calc.utilization(load, cap);
+                      const level = Calc.utilLevel(util);
+                      return `<td class="week-cell ${level}">
+                        <span class="pct">${esc(Calc.formatUtil(util))}</span>
+                        <span class="hrs">${Calc.formatHours(load)} / ${Calc.formatHours(cap)}h</span>
+                        ${off ? `<span class="hrs">−${Calc.formatHours(off)}h out</span>` : ""}
+                      </td>`;
+                    })
+                    .join("")}
+                </tr>`;
+              })
+              .join("")}
+            ${
+              !state.centerFilter
+                ? `<tr>
+                    <td><strong>All centers</strong></td>
+                    <td class="num">${Calc.formatHours(s.totals.weeklyCapacity)}h</td>
+                    ${s.weeks
+                      .map((w) => {
+                        const load = s.totals.loadByWeek[w.key] || 0;
+                        const cap = s.totals.capacityByWeek[w.key] || 0;
+                        const util = Calc.utilization(load, cap);
+                        const level = Calc.utilLevel(util);
+                        return `<td class="week-cell ${level}">
+                          <span class="pct">${esc(Calc.formatUtil(util))}</span>
+                          <span class="hrs">${Calc.formatHours(load)} / ${Calc.formatHours(cap)}h</span>
+                        </td>`;
+                      })
+                      .join("")}
+                  </tr>`
+                : ""
+            }
+          </tbody>
+        </table>
+      </section>
+      ${renderWeekOrders(s, centers)}`;
+  }
+
+  function renderWeekOrders(s, centers) {
+    const ids = new Set(centers.map((c) => c.id));
+    const open = state.data.workOrders
+      .filter((wo) => Calc.isOpen(wo) && (!ids.size || ids.has(String(wo.workCenterId))))
+      .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+    if (!open.length) return "";
+    return `<section class="card" style="margin-top:0.75rem">
+      <h3>Open work in this view</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>WO</th><th>Center</th><th>Due week</th><th class="num">Hours</th><th>Fits alone?</th></tr></thead>
+        <tbody>
+          ${open
+            .map((wo) => {
+              const center = s.centers.find((c) => c.id === String(wo.workCenterId));
+              const cap = center ? center.weeklyCapacity : 0;
+              const dueWeek = wo.dueDate ? Calc.weekLabel(Calc.startOfWeek(wo.dueDate, state.settings.weekStartsOn), Calc.addDays(Calc.startOfWeek(wo.dueDate, state.settings.weekStartsOn), 6)) : "Unscheduled";
+              const fits = Calc.fitsAlone(wo, cap, state.settings.weekStartsOn, new Date(), center && center.capacityByWeek);
+              const overdue = Calc.isOverdue(wo);
+              return `<tr>
+                <td><button class="linkish" data-action="edit-order" data-id="${esc(wo.id)}">${esc(wo.number)}</button><div class="tiny muted">${esc(wo.title || "")}</div></td>
+                <td>${esc(centerName(wo.workCenterId))}</td>
+                <td>${esc(dueWeek)}${overdue ? ` <span class="pill over">Overdue</span>` : ""}</td>
+                <td class="num">${Calc.formatHours(Calc.remainingHours(wo))}h</td>
+                <td>${fits ? `<span class="pill healthy">Yes</span>` : `<span class="pill over">No</span>`}</td>
+              </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table></div>
+    </section>`;
+  }
+
+  function renderSettings() {
+    const s = state.settings;
+    return `<div class="page-head">
+        <div>
+          <h2>Settings</h2>
+          <p class="lede">How capacity is calculated, and where the data lives.</p>
+        </div>
+      </div>
+      <div class="settings-grid">
+        <section class="card">
+          <h3>Planning</h3>
+          <form class="form-grid" data-form="settings-plan">
+            <label>Site / shop name
+              <input class="field" name="siteName" value="${esc(s.siteName)}">
+            </label>
+            <label>Planning horizon
+              <select class="field" name="planningWeeks">
+                ${[
+                  [1, "1 week"],
+                  [2, "2 weeks"],
+                  [5, "1 month (~5 wks)"],
+                  [8, "8 weeks"],
+                  [13, "1 quarter (~13 wks)"],
+                  [26, "Half year"],
+                  [52, "1 year"]
+                ].map(([n, label]) => `<option value="${n}" ${Number(s.planningWeeks) === n ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </label>
+            <label>Week starts
+              <select class="field" name="weekStartsOn">
+                <option value="1" ${s.weekStartsOn === 1 ? "selected" : ""}>Monday</option>
+                <option value="0" ${s.weekStartsOn === 0 ? "selected" : ""}>Sunday</option>
+              </select>
+            </label>
+            <label>Load method
+              <select class="field" name="loadMode">
+                <option value="due-week" ${s.loadMode === "due-week" ? "selected" : ""}>All hours in the due week</option>
+                <option value="spread" ${s.loadMode === "spread" ? "selected" : ""}>Spread hours through the due date</option>
+              </select>
+            </label>
+            <div class="span-2 help">
+              <strong>Due week</strong> is how most shops ask “can we ship Friday?”
+              <strong>Spread</strong> assumes the crew works the job steadily from this week until it is due.
+            </div>
+            <div class="span-2"><button class="btn primary" type="submit">Save planning</button></div>
+          </form>
+        </section>
+        <section class="card">
+          <h3>Shared data file</h3>
+          <p class="help">The app cannot run as a live page inside SharePoint. Put <code>capacity-data.json</code> in the same SharePoint folder, sync that folder with OneDrive, then connect the file here. Everyone uses the HTML. The JSON file is the database. It stays in your tenant.</p>
+          <div class="row-actions">
+            <button class="btn primary" type="button" data-action="file-create">Create team file</button>
+            <button class="btn" type="button" data-action="file-open">Open existing team file</button>
+          </div>
+          <p class="tiny muted" style="margin-top:0.6rem">${Files.connected() ? "Connected to capacity-data.json · " + esc(state.syncState) : Files.supported() ? "Not connected yet" : "Open with Start-CapacityTracker.bat in Edge or Chrome"}</p>
+        </section>
+        <section class="card">
+          <h3>Live team board (outside tenant)</h3>
+          <p class="help">Everyone who opens this HTML file shares one board. New work orders show up on other computers in a few seconds. Keep the file on SharePoint and open the downloaded copy.</p>
+          <form class="form-grid" data-form="settings-team">
+            <label class="span-2">JSONBin master key
+              <input class="field" name="teamApiKey" type="password" autocomplete="off" value="${esc(s.teamApiKey)}" placeholder="Paste key from jsonbin.io">
+            </label>
+            <label class="span-2">Board ID
+              <input class="field" name="teamBinId" value="${esc(s.teamBinId)}" placeholder="Created for you when you start a board">
+            </label>
+            <div class="span-2 help">
+              1. Open jsonbin.io and create a free account.<br>
+              2. Copy API Keys → Master Key.<br>
+              3. Click <strong>Start shared board</strong>.<br>
+              4. Click <strong>Download team HTML</strong> and replace the file on SharePoint so everyone gets the same board.
+            </div>
+            <div class="span-2 row-actions">
+              <button class="btn primary" type="submit">Save &amp; connect</button>
+              <button class="btn" type="button" data-action="team-create">Start shared board</button>
+              <button class="btn" type="button" data-action="team-download">Download team HTML</button>
+            </div>
+            <div class="span-2 tiny muted">${s.teamBinId ? `Board ${esc(s.teamBinId)} · ${esc(state.syncState)}${state.syncError ? " · " + esc(state.syncError) : ""}` : "Not connected"}</div>
+          </form>
+        </section>
+        <section class="card">
+          <h3>Data storage</h3>
+          <form class="form-grid" data-form="settings-storage">
+            <label class="span-2">Store data in
+              <select class="field" name="storage">
+                <option value="file" ${s.storage === "file" ? "selected" : ""}>Shared data file (this folder)</option>
+                <option value="team" ${s.storage === "team" ? "selected" : ""}>JSONBin (leaves tenant)</option>
+                <option value="local" ${s.storage === "local" ? "selected" : ""}>This browser only</option>
+                <option value="sharepoint" ${s.storage === "sharepoint" ? "selected" : ""}>SharePoint lists</option>
+              </select>
+            </label>
+            <label class="span-2">SharePoint site URL
+              <input class="field" name="sharepointSiteUrl" placeholder="https://fuseintegration.sharepoint.us/sites/Production" value="${esc(s.sharepointSiteUrl)}">
+            </label>
+            <label>Application (client) ID
+              <input class="field" name="clientId" value="${esc(s.clientId)}" placeholder="From IT app registration">
+            </label>
+            <label>Directory (tenant) ID
+              <input class="field" name="tenantId" value="${esc(s.tenantId)}" placeholder="From IT, or leave blank">
+            </label>
+            <label>Work centers list
+              <input class="field" name="listWorkCenters" value="${esc(s.listWorkCenters)}">
+            </label>
+            <label>Employees list
+              <input class="field" name="listPeople" value="${esc(s.listPeople)}">
+            </label>
+            <label>Work orders list
+              <input class="field" name="listWorkOrders" value="${esc(s.listWorkOrders)}">
+            </label>
+            <label class="span-2">Time off list
+              <input class="field" name="listAbsences" value="${esc(s.listAbsences)}">
+            </label>
+            <div class="span-2 help">
+              Lists stay in your tenant. This HTML page is only the screen. Create the four CT lists on Production, get a client ID from IT (see sharepoint/IT-APP-REGISTRATION.txt), then Sign in.
+              Open the app with Start-CapacityTracker.bat so sign-in works (do not rely on double-click after you turn on SharePoint).
+            </div>
+            <div class="span-2 row-actions">
+              <button class="btn primary" type="submit">Save storage</button>
+              <button class="btn" type="button" data-action="sp-test">Test connection</button>
+              <button class="btn" type="button" data-action="sp-push">Push browser data to lists</button>
+            </div>
+          </form>
+        </section>
+        <section class="card">
+          <h3>Backup & sample</h3>
+          <p class="help">Export a JSON backup before switching storage. Import replaces the current dataset.</p>
+          <div class="row-actions">
+            <button class="btn" data-action="export-json">Export JSON</button>
+            <button class="btn" data-action="export-orders">Export work orders CSV</button>
+            <button class="btn" data-action="import">Import JSON</button>
+            <button class="btn" data-action="demo">Load sample shop</button>
+            <button class="btn danger" data-action="reset">Clear all data</button>
+          </div>
+        </section>
+        <section class="card">
+          <h3>How the math works</h3>
+          <p class="help">
+            Roster employees, then assign each one to a work center.<br>
+            A person’s available hours in a week = (hours per week − PTO/sick hours) × efficiency.<br>
+            Weekends are skipped unless the employee works weekends or the time-off row includes Saturday and Sunday.<br>
+            Load = remaining hours on work orders that are not complete. On-hold still reserves time.
+          </p>
+        </section>
+      </div>`;
+  }
+
+  function formField(label, name, value, extra) {
+    return `<label>${label}<input class="field" name="${name}" value="${esc(value || "")}" ${extra || ""}></label>`;
+  }
+
+  function modalShell(title, body, footer) {
+    return `<form class="modal-card" data-form="modal" method="dialog">
+      <h3>${esc(title)}</h3>
+      ${body}
+      <div class="modal-actions">${footer}</div>
+    </form>`;
+  }
+
+  function centerForm(id) {
+    const existing = id ? centerById(id) : null;
+    const c = existing || { name: "", notes: "", color: Store.nextColor(state.data.workCenters) };
+    return modalShell(existing ? "Edit work center" : "New work center", `
+      <div class="form-grid">
+        ${formField("Name", "name", c.name, "required")}
+        <label>Color
+          <input class="field" type="color" name="color" value="${esc(c.color || "#1f6f6a")}">
+        </label>
+        <label class="span-2">Notes
+          <textarea class="field" name="notes">${esc(c.notes || "")}</textarea>
+        </label>
+      </div>
+    `, `
+      <span></span>
+      <span class="row-actions">
+        <button class="btn" type="button" data-action="close-modal">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </span>
+    `);
+  }
+
+  function personForm(id, centerId) {
+    const existing = id ? state.data.people.find((p) => p.id === id) : null;
+    const p = existing || {
+      name: "",
+      workCenterId: centerId || "",
+      hoursPerWeek: 40,
+      workDays: 5,
+      efficiency: 100,
+      notes: ""
+    };
+    return modalShell(existing ? "Edit employee" : "Add employee", `
+      <div class="form-grid">
+        ${formField("Name", "name", p.name, "required")}
+        <label>Work center
+          <select class="field" name="workCenterId">${centerOptions(p.workCenterId, "Unassigned")}</select>
+        </label>
+        ${formField("Hours per week", "hoursPerWeek", p.hoursPerWeek, 'type="number" min="0" step="0.5" required')}
+        ${formField("Work days / week", "workDays", p.workDays || 5, 'type="number" min="1" max="7" step="1"')}
+        ${formField("Efficiency %", "efficiency", p.efficiency, 'type="number" min="0" max="150" step="1"')}
+        <label class="span-2 check">
+          <input type="checkbox" name="worksWeekends" ${p.worksWeekends ? "checked" : ""}>
+          <span>Works weekends</span>
+        </label>
+        <label class="span-2">Notes
+          <textarea class="field" name="notes">${esc(p.notes || "")}</textarea>
+        </label>
+      </div>
+    `, `
+      <span></span>
+      <span class="row-actions">
+        <button class="btn" type="button" data-action="close-modal">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </span>
+    `);
+  }
+
+  function absenceForm(id, personId) {
+    const existing = id ? (state.data.absences || []).find((a) => a.id === id) : null;
+    const person = personById((existing && existing.personId) || personId);
+    const a = existing || {
+      personId,
+      type: "pto",
+      startDate: Calc.formatISO(new Date()),
+      endDate: Calc.formatISO(new Date()),
+      hours: "",
+      includeWeekends: Boolean(person && person.worksWeekends),
+      notes: ""
+    };
+    const includeWeekends = existing ? Boolean(a.includeWeekends) : Boolean(person && person.worksWeekends);
+    return modalShell(existing ? "Edit time off" : `Time off${person ? ` · ${person.name}` : ""}`, `
+      <div class="form-grid">
+        <label>Type
+          <select class="field" name="type">
+            ${Object.entries(ABSENCE_LABEL)
+              .map(([k, v]) => `<option value="${k}" ${a.type === k ? "selected" : ""}>${v}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label class="span-2 tiny muted" style="font-weight:400">Leave hours blank to use full work days (${person ? Calc.formatHours(Calc.hoursPerWorkDay(person)) + "h/day" : "hours ÷ work days"}). Enter a number for a half day or partial leave.</label>
+        ${formField("Start", "startDate", a.startDate, 'type="date" required')}
+        ${formField("End", "endDate", a.endDate || a.startDate, 'type="date" required')}
+        ${formField("Hours (optional)", "hours", a.hours, 'type="number" min="0" step="0.5" placeholder="Auto from days"')}
+        <label class="span-2 check">
+          <input type="checkbox" name="includeWeekends" ${includeWeekends ? "checked" : ""}>
+          <span>Include Saturday and Sunday</span>
+        </label>
+        <label class="span-2">Notes
+          <textarea class="field" name="notes">${esc(a.notes || "")}</textarea>
+        </label>
+      </div>
+    `, `
+      <span></span>
+      <span class="row-actions">
+        <button class="btn" type="button" data-action="close-modal">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </span>
+    `);
+  }
+
+  function orderForm(id, centerId) {
+    const existing = id ? state.data.workOrders.find((o) => o.id === id) : null;
+    const o = existing || {
+      number: Store.nextWorkOrderNumber(state.data.workOrders),
+      title: "",
+      workCenterId: centerId || state.data.workCenters[0]?.id || "",
+      hours: "",
+      remainingHours: "",
+      dueDate: Calc.formatISO(Calc.addDays(new Date(), 7)),
+      status: "queued",
+      priority: "medium",
+      notes: ""
+    };
+    return modalShell(existing ? `Edit ${o.number}` : "New work order", `
+      <div class="form-grid">
+        ${formField("Work order #", "number", o.number, "required")}
+        ${formField("Title / customer", "title", o.title)}
+        <label>Work center
+          <select class="field" name="workCenterId" required>${centerOptions(o.workCenterId, "Select a center")}</select>
+        </label>
+        ${formField("Projected due date", "dueDate", o.dueDate, 'type="date" required')}
+        ${(() => {
+          const fromWi = o.instructionKind === "product" && o.assemblyId;
+          let wiHours = null;
+          if (fromWi) {
+            try {
+              const raw = JSON.parse(localStorage.getItem("capacity-tracker.v1") || "{}");
+              const asm = (raw.assemblies || []).find((a) => String(a.id) === String(o.assemblyId));
+              if (asm && Array.isArray(asm.steps)) {
+                wiHours = asm.steps.reduce((sum, s) => sum + (Number(s.projectedHours) || 0), 0);
+              }
+            } catch (e) {}
+            if (wiHours == null) wiHours = Number(o.hours) || 0;
+          }
+          if (fromWi) {
+            return `
+        <label>Hours to complete
+          <input class="field" name="hours" type="number" value="${wiHours}" readonly style="background:var(--card-2)">
+          <span class="tiny muted">From product / LRU work instruction step times (not editable here)</span>
+        </label>
+        <label>Hours remaining
+          <input class="field" name="remainingHours" type="number" value="${o.remainingHours === "" || o.remainingHours == null ? wiHours : o.remainingHours}" readonly style="background:var(--card-2)">
+          <span class="tiny muted">Driven by WI projected hours and traveler progress</span>
+        </label>
+        <input type="hidden" name="hoursFromWi" value="1">`;
+          }
+          return `
+        ${formField("Hours to complete", "hours", o.hours, 'type="number" min="0" step="0.5" required')}
+        ${formField("Hours remaining", "remainingHours", o.remainingHours === "" ? o.hours : o.remainingHours, 'type="number" min="0" step="0.5"')}
+        <input type="hidden" name="hoursFromWi" value="0">`;
+        })()}
+        <label>Status
+          <select class="field" name="status">
+            ${Object.entries(STATUS_LABEL)
+              .map(([k, v]) => `<option value="${k}" ${o.status === k ? "selected" : ""}>${v}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label>Priority
+          <select class="field" name="priority">
+            ${Object.entries(PRIORITY_LABEL)
+              .map(([k, v]) => `<option value="${k}" ${o.priority === k ? "selected" : ""}>${v}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label class="span-2">Notes
+          <textarea class="field" name="notes">${esc(o.notes || "")}</textarea>
+        </label>
+      </div>
+    `, `
+      <span></span>
+      <span class="row-actions">
+        <button class="btn" type="button" data-action="close-modal">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </span>
+    `);
+  }
+
+  function confirmForm(message) {
+    return modalShell("Please confirm", `<p>${esc(message)}</p>`, `
+      <span></span>
+      <span class="row-actions">
+        <button class="btn" type="button" data-action="close-modal">Cancel</button>
+        <button class="btn danger" type="submit">Confirm</button>
+      </span>
+    `);
+  }
+
+  function openModal(modal) {
+    state.modal = modal;
+    const el = $("#modal");
+    if (!el) return;
+    if (modal.kind === "center") el.innerHTML = centerForm(modal.id);
+    if (modal.kind === "person") el.innerHTML = personForm(modal.id, modal.centerId);
+    if (modal.kind === "absence") el.innerHTML = absenceForm(modal.id, modal.personId);
+    if (modal.kind === "order") el.innerHTML = orderForm(modal.id, modal.centerId);
+    if (modal.kind === "confirm") el.innerHTML = confirmForm(modal.message);
+    if (typeof el.showModal === "function" && !el.open) el.showModal();
+  }
+
+  function closeModal() {
+    state.modal = null;
+    const el = $("#modal");
+    if (el && el.open) el.close();
+    el && (el.innerHTML = "");
+  }
+
+  function formData(form) {
+    return Object.fromEntries(new FormData(form).entries());
+  }
+
+  async function withBusy(fn) {
+    state.busy = true;
+    renderView();
+    try {
+      await fn();
+    } catch (err) {
+      console.error(err);
+      state.error = err.message || String(err);
+      toast(state.error, "error");
+    } finally {
+      state.busy = false;
+      renderShell();
+    }
+  }
+
+  function persistLocal() {
+    state.data.updatedAt = Date.now();
+    Store.LocalStore.save(state.data);
+    if (fileEnabled()) queueFilePush();
+    if (teamEnabled()) queueTeamPush();
+  }
+
+  function persistSettings() {
+    Store.LocalStore.saveSettings(state.settings);
+    connectRepo();
+    startTeamPoll();
+    startFilePoll();
+  }
+
+  function queueFilePush() {
+    if (!fileEnabled()) return;
+    window.clearTimeout(state.filePushTimer);
+    state.filePushTimer = window.setTimeout(function () {
+      Files.write(state.data)
+        .then(function () {
+          state.syncState = "live";
+          state.syncError = "";
+        })
+        .catch(function (err) {
+          state.syncState = "error";
+          state.syncError = err.message || String(err);
+          toast(state.syncError, "error");
+        });
+    }, 300);
+  }
+
+  function startFilePoll() {
+    window.clearInterval(state.filePoll);
+    if (!fileEnabled()) return;
+    state.filePoll = window.setInterval(function () {
+      if (state.modal || state.busy) return;
+      Files.changedOnDisk()
+        .then(function (changed) {
+          if (!changed) return;
+          return Files.read().then(function (remote) {
+            if (state.modal || state.busy) return;
+            state.data = remote;
+            Store.LocalStore.save(state.data);
+            state.syncState = "live";
+            renderShell();
+          });
+        })
+        .catch(function () {
+          /* keep last good copy */
+        });
+    }, 2500);
+  }
+
+  async function connectTeamFile(create) {
+    if (create) await Files.createNew();
+    else await Files.pickExisting();
+    state.settings.storage = "file";
+    persistSettings();
+    let data = Store.emptyData();
+    try {
+      data = await Files.read();
+    } catch (err) {
+      data = Store.emptyData();
+    }
+    if (!data.workCenters.length && !data.workOrders.length && state.data.workCenters.length) {
+      data = state.data;
+    }
+    data.updatedAt = Date.now();
+    state.data = data;
+    await Files.write(state.data);
+    Store.LocalStore.save(state.data);
+    state.syncState = "live";
+    startFilePoll();
+    toast("Using the shared data file. Keep it in the OneDrive-synced SharePoint folder.");
+  }
+
+  function queueTeamPush() {
+    if (!teamEnabled()) return;
+    window.clearTimeout(state.pushTimer);
+    state.pushTimer = window.setTimeout(function () {
+      pushTeam().catch(function (err) {
+        state.syncState = "error";
+        state.syncError = err.message || String(err);
+        toast(state.syncError, "error");
+      });
+    }, 400);
+  }
+
+  async function pushTeam() {
+    if (!teamEnabled()) return;
+    state.syncState = "saving";
+    await Sync.push(state.settings.teamApiKey, state.settings.teamBinId, state.data);
+    state.syncState = "live";
+    state.syncError = "";
+  }
+
+  async function pullTeam() {
+    if (!teamEnabled()) return null;
+    const remote = Store.normalizeData(await Sync.pull(state.settings.teamApiKey, state.settings.teamBinId));
+    state.syncState = "live";
+    state.syncError = "";
+    return remote;
+  }
+
+  function startTeamPoll() {
+    window.clearInterval(state.pollTimer);
+    if (!teamEnabled()) {
+      state.syncState = "off";
+      return;
+    }
+    state.pollTimer = window.setInterval(function () {
+      if (state.modal || state.busy) return;
+      pullTeam()
+        .then(function (remote) {
+          if (!remote) return;
+          if ((remote.updatedAt || 0) > (state.data.updatedAt || 0)) {
+            state.data = remote;
+            Store.LocalStore.save(state.data);
+            renderShell();
+          }
+        })
+        .catch(function (err) {
+          state.syncState = "error";
+          state.syncError = err.message || String(err);
+        });
+    }, 3000);
+  }
+
+  async function startSharedBoard() {
+    const key = state.settings.teamApiKey || ($("[name=teamApiKey]") && $("[name=teamApiKey]").value) || "";
+    if (!key) throw new Error("Paste your JSONBin master key first.");
+    state.settings.teamApiKey = key.trim();
+    state.data.updatedAt = Date.now();
+    const created = await Sync.create(state.settings.teamApiKey, state.data);
+    state.settings.teamBinId = created.id;
+    state.settings.storage = "team";
+    persistSettings();
+    Store.LocalStore.save(state.data);
+    state.syncState = "live";
+    toast("Shared board started. Download the team HTML and put it on SharePoint.");
+  }
+
+  function downloadTeamHtml() {
+    if (!state.settings.teamApiKey || !state.settings.teamBinId) {
+      throw new Error("Start a shared board first.");
+    }
+    const html = Sync.injectIntoHtml(document.documentElement.outerHTML, {
+      apiKey: state.settings.teamApiKey,
+      binId: state.settings.teamBinId
+    });
+    Store.download("CapacityTracker.html", "<!DOCTYPE html>\n" + html, "text/html;charset=utf-8");
+    toast("Upload this file to SharePoint. Everyone who opens it joins the same board.");
+  }
+
+  function connectRepo() {
+    if (state.settings.storage === "sharepoint") {
+      state.repo = Auth.hasToken()
+        ? new Graph.GraphStore(state.settings, Auth)
+        : new SP.SharePointStore(state.settings);
+    } else {
+      state.repo = null;
+    }
+    startListPoll();
+  }
+
+  function snapshotData(data) {
+    return JSON.stringify({
+      workCenters: data.workCenters,
+      people: data.people,
+      workOrders: data.workOrders,
+      absences: data.absences
+    });
+  }
+
+  function startListPoll() {
+    window.clearInterval(state.listPoll);
+    if (state.settings.storage !== "sharepoint" || !Auth.hasToken() || !state.repo || !state.repo.load) return;
+    state.listPoll = window.setInterval(function () {
+      if (state.modal || state.busy || state.signIn) return;
+      const before = snapshotData(state.data);
+      state.repo
+        .load()
+        .then(function (remote) {
+          if (state.modal || state.busy) return;
+          if (snapshotData(remote) !== before) {
+            state.data = remote;
+            Store.LocalStore.save(state.data);
+            renderShell();
+          }
+        })
+        .catch(function () {
+          /* keep last good copy */
+        });
+    }, 8000);
+  }
+
+  async function signInSharePoint() {
+    if (!state.settings.sharepointSiteUrl) {
+      state.settings.sharepointSiteUrl = "https://fuseintegration.sharepoint.us/sites/Production";
+    }
+    if (!state.settings.clientId) throw new Error("Paste the Application (client) ID in Settings first.");
+    const challenge = await Auth.requestDeviceCode(state.settings);
+    state.signIn = challenge;
+    renderShell();
+    try {
+      await Auth.waitForToken(challenge);
+      state.signIn = null;
+      state.settings.storage = "sharepoint";
+      persistSettings();
+      connectRepo();
+      state.data = await state.repo.load();
+      Store.LocalStore.save(state.data);
+      toast("Signed in. Using SharePoint lists on Production.");
+    } finally {
+      state.signIn = null;
+    }
+  }
+
+  function signOutSharePoint() {
+    Auth.signOut();
+    connectRepo();
+    toast("Signed out");
+  }
+
+  async function upsertList(list, item, saved) {
+    const idx = list.findIndex((x) => String(x.id) === String(item.id));
+    if (idx >= 0) list[idx] = saved;
+    else list.push(saved);
+  }
+
+  async function saveCenter(fields) {
+    const existing = state.modal.id ? centerById(state.modal.id) : null;
+    let record = Store.normalizeCenter(
+      Object.assign({}, existing || { id: Store.uid("wc") }, fields)
+    );
+    if (state.repo) record = await state.repo.saveCenter(record);
+    upsertList(state.data.workCenters, existing || record, record);
+    persistLocal();
+    toast(existing ? "Work center updated" : "Work center created");
+  }
+
+  function checkboxOn(fields, name) {
+    return fields[name] === "on" || fields[name] === "true" || fields[name] === true;
+  }
+
+  async function savePerson(fields, existingId) {
+    const id = existingId || (state.modal && state.modal.id) || "";
+    const existing = id ? state.data.people.find((p) => p.id === id) : null;
+    if (Object.prototype.hasOwnProperty.call(fields, "name")) {
+      fields.worksWeekends = checkboxOn(fields, "worksWeekends");
+    }
+    // Never wipe PIN on normal profile save unless fields.pin provided
+    if (existing && (fields.pin == null || fields.pin === "")) {
+      fields.pin = existing.pin || "1111";
+    }
+    if (existing && fields.mustChangePin == null) {
+      fields.mustChangePin = existing.mustChangePin;
+    }
+    let record = Store.normalizePerson(
+      Object.assign({}, existing || { id: Store.uid("p") }, fields)
+    );
+    if (state.repo) record = await state.repo.savePerson(record, state.data);
+    upsertList(state.data.people, existing || record, record);
+    persistLocal();
+    if (!existing) {
+      state.view = "employee";
+      state.employeeId = record.id;
+    }
+    toast(existing ? "Employee updated" : "Employee added");
+    return record;
+  }
+
+  async function saveAbsence(fields) {
+    const existing = state.modal.id ? (state.data.absences || []).find((a) => a.id === state.modal.id) : null;
+    if (fields.startDate && fields.endDate && fields.endDate < fields.startDate) {
+      throw new Error("End date cannot be before the start date.");
+    }
+    fields.includeWeekends = checkboxOn(fields, "includeWeekends");
+    let record = Store.normalizeAbsence(
+      Object.assign({}, existing || { id: Store.uid("abs") }, fields, {
+        personId: (state.modal && state.modal.personId) || (existing && existing.personId) || ""
+      })
+    );
+    if (!record.personId) throw new Error("Time off must belong to an employee.");
+    if (!state.data.absences) state.data.absences = [];
+    if (state.repo) record = await state.repo.saveAbsence(record, state.data);
+    upsertList(state.data.absences, existing || record, record);
+    persistLocal();
+    toast(existing ? "Time off updated" : "Time off added");
+  }
+
+  async function saveOrder(fields) {
+    const existing = state.modal.id ? state.data.workOrders.find((o) => o.id === state.modal.id) : null;
+    if (fields.hoursFromWi === "1" || (existing && existing.instructionKind === "product" && existing.assemblyId)) {
+      // Keep WI-driven hours; do not require manual entry
+      if (fields.hours === "" || fields.hours == null) fields.hours = existing ? existing.hours : 0;
+      if (fields.remainingHours === "" || fields.remainingHours == null) fields.remainingHours = existing ? existing.remainingHours : fields.hours;
+      fields.hoursFromWi = true;
+    } else {
+      fields.hoursFromWi = false;
+    }
+    if (fields.remainingHours === "" || fields.remainingHours == null) {
+      fields.remainingHours = fields.hours;
+    }
+    if (fields.status === "complete") fields.remainingHours = 0;
+    let record = Store.normalizeOrder(
+      Object.assign({}, existing || { id: Store.uid("wo") }, fields)
+    );
+    if (state.repo) record = await state.repo.saveOrder(record, state.data);
+    upsertList(state.data.workOrders, existing || record, record);
+    persistLocal();
+    toast(existing ? "Work order updated" : "Work order added");
+  }
+
+  async function removeCenter(id) {
+    const people = state.data.people.filter((p) => String(p.workCenterId) === String(id)).length;
+    const orders = state.data.workOrders.filter((o) => String(o.workCenterId) === String(id)).length;
+    const ok = await ask(
+      `Delete this work center? ${people} people and ${orders} work orders will be unassigned.`
+    );
+    if (!ok) return;
+    if (state.repo) await state.repo.deleteCenter(id);
+    state.data.workCenters = state.data.workCenters.filter((c) => String(c.id) !== String(id));
+    state.data.people.forEach((p) => {
+      if (String(p.workCenterId) === String(id)) p.workCenterId = "";
+    });
+    state.data.workOrders.forEach((o) => {
+      if (String(o.workCenterId) === String(id)) o.workCenterId = "";
+    });
+    persistLocal();
+    toast("Work center deleted");
+  }
+
+  async function removePerson(id) {
+    const person = state.data.people.find((p) => p.id === id);
+    const ok = await ask(`Remove ${person ? person.name : "this employee"} and their time-off records?`);
+    if (!ok) return;
+    const related = (state.data.absences || []).filter((a) => String(a.personId) === String(id));
+    if (state.repo) {
+      for (const absence of related) await state.repo.deleteAbsence(absence.id);
+      await state.repo.deletePerson(id);
+    }
+    state.data.absences = (state.data.absences || []).filter((a) => String(a.personId) !== String(id));
+    state.data.people = state.data.people.filter((p) => p.id !== id);
+    if (state.employeeId === id) {
+      state.employeeId = "";
+      state.view = "people";
+    }
+    persistLocal();
+    toast("Employee removed");
+  }
+
+  async function removeAbsence(id) {
+    const absence = (state.data.absences || []).find((a) => a.id === id);
+    const ok = await ask("Delete this time-off entry?");
+    if (!ok) return;
+    if (state.repo) await state.repo.deleteAbsence(id);
+    state.data.absences = (state.data.absences || []).filter((a) => a.id !== id);
+    persistLocal();
+    toast("Time off removed");
+    return absence;
+  }
+
+  async function assignCenter(personId, workCenterId) {
+    const existing = personById(personId);
+    if (!existing) return;
+    await savePerson({ workCenterId }, personId);
+  }
+
+  async function removeOrder(id) {
+    const wo = state.data.workOrders.find((o) => o.id === id);
+    const ok = await ask(`Delete ${wo ? wo.number : "this work order"}?`);
+    if (!ok) return;
+    if (state.repo) await state.repo.deleteOrder(id);
+    state.data.workOrders = state.data.workOrders.filter((o) => o.id !== id);
+    persistLocal();
+    toast("Work order deleted");
+  }
+
+  function ask(message) {
+    return new Promise((resolve) => {
+      state.modal = { kind: "confirm", message, resolve };
+      openModal(state.modal);
+    });
+  }
+
+  async function completeOrder(id) {
+    const wo = state.data.workOrders.find((o) => o.id === id);
+    if (!wo) return;
+    wo.status = "complete";
+    wo.remainingHours = 0;
+    if (state.repo) await state.repo.saveOrder(wo, state.data);
+    persistLocal();
+    toast(`${wo.number} marked complete`);
+  }
+
+  function exportJson() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      settings: state.settings,
+      data: state.data
+    };
+    Store.download(`capacity-${Store.stamp()}.json`, JSON.stringify(payload, null, 2), "application/json");
+  }
+
+  function exportOrdersCsv() {
+    const rows = [
+      ["Number", "Title", "WorkCenter", "Hours", "RemainingHours", "DueDate", "Status", "Priority", "Notes"]
+    ];
+    for (const wo of state.data.workOrders) {
+      rows.push([
+        wo.number,
+        wo.title,
+        centerName(wo.workCenterId),
+        wo.hours,
+        wo.remainingHours,
+        wo.dueDate,
+        wo.status,
+        wo.priority,
+        wo.notes
+      ]);
+    }
+    Store.download(`work-orders-${Store.stamp()}.csv`, Store.toCsv(rows), "text/csv");
+  }
+
+  function exportPlanCsv() {
+    const s = summary();
+    const header = ["Work center", "Weekly capacity"].concat(s.weeks.map((w) => w.label));
+    const rows = [header];
+    for (const c of s.centers) {
+      rows.push(
+        [c.name, c.weeklyCapacity].concat(s.weeks.map((w) => Math.round((c.loadByWeek[w.key] || 0) * 10) / 10))
+      );
+    }
+    Store.download(`planning-${Store.stamp()}.csv`, Store.toCsv(rows), "text/csv");
+  }
+
+  function importJsonFile() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.addEventListener("change", async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const parsed = JSON.parse(await file.text());
+        const incoming = parsed.data || parsed;
+        const next = Store.normalizeData(incoming);
+        const ok = await ask("Replace the current work centers, people, and work orders with this file?");
+        if (!ok) return;
+        await withBusy(async () => {
+          if (state.repo) {
+            state.data = await state.repo.replaceAll(next);
+          } else {
+            state.data = next;
+            persistLocal();
+          }
+          if (parsed.settings) {
+            state.settings = Store.normalizeSettings(Object.assign({}, state.settings, parsed.settings, { storage: state.settings.storage }));
+            persistSettings();
+          }
+          toast("Import complete");
+        });
+      } catch (err) {
+        toast(err.message || "Could not read that file", "error");
+      }
+    });
+    input.click();
+  }
+
+  async function loadDemo() {
+    const ok = await ask("Replace current data with a sample fabrication shop?");
+    if (!ok) return;
+    const demo = Store.demoData();
+    await withBusy(async () => {
+      if (state.repo) state.data = await state.repo.replaceAll(demo);
+      else {
+        state.data = demo;
+        persistLocal();
+      }
+      toast("Sample shop loaded");
+    });
+  }
+
+  async function resetAll() {
+    const ok = await ask("Clear every work center, person, and work order?");
+    if (!ok) return;
+    const empty = Store.emptyData();
+    await withBusy(async () => {
+      if (state.repo) state.data = await state.repo.replaceAll(empty);
+      else {
+        state.data = empty;
+        persistLocal();
+      }
+      toast("Data cleared");
+    });
+  }
+
+  async function testSharePoint() {
+    const repo = new SP.SharePointStore(state.settings);
+    await repo.test();
+    toast("SharePoint lists are reachable");
+  }
+
+  async function pushToSharePoint() {
+    const ok = await ask("Overwrite the SharePoint lists with the data currently in this browser?");
+    if (!ok) return;
+    const repo = new SP.SharePointStore(state.settings);
+    await repo.test();
+    state.data = await repo.replaceAll(state.data);
+    state.settings.storage = "sharepoint";
+    persistSettings();
+    toast("Browser data pushed to SharePoint lists");
+  }
+
+  function bindFilters(target) {
+    const bind = target.getAttribute("data-bind");
+    if (bind === "query") state.query = target.value;
+    if (bind === "centerFilter") state.centerFilter = target.value;
+    if (bind === "statusFilter") state.statusFilter = target.value;
+    renderView();
+  }
+
+  async function onAction(btn) {
+    const action = btn.getAttribute("data-action");
+    const id = btn.getAttribute("data-id") || "";
+    const centerId = btn.getAttribute("data-center") || "";
+    if (action === "view") {
+      state.view = btn.getAttribute("data-view");
+      if (centerId) state.centerFilter = centerId;
+      if (state.view !== "people" && state.centerFilter === "__none") state.centerFilter = "";
+      if (state.view !== "employee") state.employeeId = "";
+      renderShell();
+      return;
+    }
+    if (action === "open-employee") {
+      state.view = "employee";
+      state.employeeId = id;
+      renderShell();
+      return;
+    }
+    if (action === "quick-add") {
+      if (!state.data.workCenters.length) {
+        toast("Create a work center first", "error");
+        state.view = "centers";
+        renderShell();
+        openModal({ kind: "center", id: "" });
+        return;
+      }
+      state.view = "orders";
+      renderShell();
+      openModal({ kind: "order", id: "" });
+      return;
+    }
+    if (action === "edit-center") return openModal({ kind: "center", id });
+    if (action === "edit-person") return openModal({ kind: "person", id, centerId });
+    if (action === "reset-pin") {
+      const person = state.data.people.find((p) => p.id === id);
+      if (!person) return;
+      person.pin = "1111";
+      person.mustChangePin = true;
+      persistLocal();
+      if (state.repo && state.repo.savePerson) {
+        try { await state.repo.savePerson(person, state.data); } catch (e) { console.warn(e); }
+      }
+      await ask("PIN for " + person.name + " was reset to 1111.\n\nThey must change it the next time they sign in.");
+      toast("PIN reset for " + person.name);
+      renderShell();
+      return;
+    }
+    if (action === "edit-absence") {
+      return openModal({
+        kind: "absence",
+        id,
+        personId: btn.getAttribute("data-person") || state.employeeId
+      });
+    }
+    if (action === "edit-order") return openModal({ kind: "order", id, centerId });
+    if (action === "close-modal") {
+      if (state.modal && state.modal.resolve) state.modal.resolve(false);
+      return closeModal();
+    }
+    if (action === "export-json") return exportJson();
+    if (action === "export-orders") return exportOrdersCsv();
+    if (action === "export-plan") return exportPlanCsv();
+    if (action === "import") return importJsonFile();
+    if (action === "demo") return loadDemo();
+    if (action === "reset") return resetAll();
+    if (action === "file-create") return withBusy(function () { return connectTeamFile(true); });
+    if (action === "file-open") return withBusy(function () { return connectTeamFile(false); });
+    if (action === "team-create") return withBusy(startSharedBoard);
+    if (action === "team-download") {
+      try {
+        downloadTeamHtml();
+      } catch (err) {
+        toast(err.message || String(err), "error");
+      }
+      return;
+    }
+    if (action === "sp-signin") return withBusy(signInSharePoint);
+    if (action === "sp-signout") {
+      signOutSharePoint();
+      renderShell();
+      return;
+    }
+    if (action === "sp-test") return withBusy(testSharePoint);
+    if (action === "sp-push") return withBusy(pushToSharePoint);
+    if (action === "delete-center") return withBusy(() => removeCenter(id));
+    if (action === "delete-person") return withBusy(() => removePerson(id));
+    if (action === "delete-absence") return withBusy(() => removeAbsence(id));
+    if (action === "delete-order") return withBusy(() => removeOrder(id));
+    if (action === "complete-order") return withBusy(() => completeOrder(id));
+  }
+
+  async function onSubmit(form) {
+    const kind = form.getAttribute("data-form");
+    const fields = formData(form);
+    if (kind === "settings-plan") {
+      Object.assign(state.settings, {
+        siteName: fields.siteName,
+        planningWeeks: Number(fields.planningWeeks),
+        weekStartsOn: Number(fields.weekStartsOn),
+        loadMode: fields.loadMode
+      });
+      persistSettings();
+      toast("Planning settings saved");
+      renderShell();
+      return;
+    }
+    if (kind === "settings-team") {
+      Object.assign(state.settings, {
+        teamApiKey: String(fields.teamApiKey || "").trim(),
+        teamBinId: String(fields.teamBinId || "").trim(),
+        storage: fields.teamBinId && fields.teamApiKey ? "team" : state.settings.storage
+      });
+      persistSettings();
+      await withBusy(async () => {
+        if (!teamEnabled()) throw new Error("Need both the master key and a board ID.");
+        const remote = await pullTeam();
+        if (remote && (remote.workCenters.length || remote.people.length || remote.workOrders.length)) {
+          state.data = remote;
+        } else {
+          state.data.updatedAt = Date.now();
+          await pushTeam();
+        }
+        Store.LocalStore.save(state.data);
+        toast("Connected to the live team board");
+      });
+      return;
+    }
+    if (kind === "settings-storage") {
+      Object.assign(state.settings, {
+        storage: fields.storage,
+        sharepointSiteUrl: fields.sharepointSiteUrl,
+        clientId: String(fields.clientId || "").trim(),
+        tenantId: String(fields.tenantId || "").trim(),
+        listWorkCenters: fields.listWorkCenters,
+        listPeople: fields.listPeople,
+        listWorkOrders: fields.listWorkOrders,
+        listAbsences: fields.listAbsences
+      });
+      persistSettings();
+      if (state.settings.storage === "sharepoint") {
+        await withBusy(async () => {
+          await state.repo.test();
+          state.data = await state.repo.load();
+          toast("Connected to SharePoint lists");
+        });
+      } else {
+        state.data = Store.LocalStore.load();
+        toast("Using this browser’s saved data");
+        renderShell();
+      }
+      return;
+    }
+    if (kind === "employee-profile") {
+      await withBusy(() => savePerson(fields, form.getAttribute("data-id")));
+      return;
+    }
+    if (kind === "modal") {
+      const modal = state.modal;
+      if (!modal) return;
+      if (modal.kind === "confirm") {
+        const resolve = modal.resolve;
+        closeModal();
+        if (resolve) resolve(true);
+        return;
+      }
+      await withBusy(async () => {
+        if (modal.kind === "center") await saveCenter(fields);
+        if (modal.kind === "person") await savePerson(fields);
+        if (modal.kind === "absence") await saveAbsence(fields);
+        if (modal.kind === "order") await saveOrder(fields);
+        closeModal();
+      });
+    }
+  }
+
+  function bindEvents() {
+    document.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-action]");
+      if (!btn || !document.getElementById("app").contains(btn)) return;
+      event.preventDefault();
+      onAction(btn);
+    });
+    document.addEventListener("submit", (event) => {
+      const form = event.target.closest("[data-form]");
+      if (!form) return;
+      event.preventDefault();
+      onSubmit(form);
+    });
+    document.addEventListener("input", (event) => {
+      if (event.target.matches("[data-bind]")) bindFilters(event.target);
+    });
+    document.addEventListener("change", (event) => {
+      if (event.target.matches("[data-bind]")) bindFilters(event.target);
+      if (event.target.matches("[data-assign='center']")) {
+        withBusy(() => assignCenter(event.target.getAttribute("data-id"), event.target.value));
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && state.modal) {
+        if (state.modal.resolve) state.modal.resolve(false);
+        closeModal();
+      }
+    });
+  }
+
+  async function boot() {
+    state.settings = Store.LocalStore.loadSettings();
+    const baked = Sync.bakedConfig();
+    if (baked) {
+      state.settings.storage = "team";
+      state.settings.teamApiKey = baked.apiKey;
+      state.settings.teamBinId = baked.binId;
+      Store.LocalStore.saveSettings(state.settings);
+    }
+    if (!state.settings.sharepointSiteUrl) {
+      const detected = SP.detectSiteUrl();
+      if (detected) state.settings.sharepointSiteUrl = detected;
+    }
+    connectRepo();
+    try {
+      if (await Files.restore()) {
+        state.settings.storage = "file";
+        Store.LocalStore.saveSettings(state.settings);
+        state.data = await Files.read();
+        state.syncState = "live";
+        startFilePoll();
+      } else if (state.settings.storage === "sharepoint" && Auth.hasToken()) {
+        connectRepo();
+        state.data = await state.repo.load();
+      } else if (teamEnabled()) {
+        const remote = await pullTeam();
+        state.data = remote && (remote.updatedAt || remote.workCenters.length || remote.workOrders.length)
+          ? remote
+          : Store.LocalStore.load();
+        if (!remote || !remote.updatedAt) {
+          state.data.updatedAt = Date.now();
+          await pushTeam();
+        }
+      } else {
+        state.data = Store.LocalStore.load();
+      }
+    } catch (err) {
+      console.error(err);
+      state.data = Store.LocalStore.load();
+      toast(`Could not load team data — using local copy. ${err.message}`, "error");
+    }
+    bindEvents();
+    startTeamPoll();
+    applyHash();
+    renderShell();
+  }
+
+  function applyHash() {
+    const h = (location.hash || "").replace(/^#/, "");
+    if (["planning", "dashboard", "centers", "people", "orders", "settings", "employee"].includes(h)) {
+      state.view = h;
+    }
+    // highlight suite nav
+    try {
+      document.querySelectorAll("#suite-tabs .tab").forEach(a => {
+        const href = a.getAttribute("href") || "";
+        const on = (h === "planning" && href.indexOf("#planning") >= 0) ||
+          ((h === "dashboard" || h === "centers" || !h) && href.indexOf("#dashboard") >= 0 && href.indexOf("CapacityTracker") >= 0);
+        a.classList.toggle("is-on", !!(on && href.indexOf("CapacityTracker") >= 0));
+      });
+    } catch (e) {}
+  }
+  window.addEventListener("hashchange", () => { applyHash(); renderShell(); });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      Promise.resolve(boot()).catch(bootFailed);
+    });
+  } else {
+    Promise.resolve(boot()).catch(bootFailed);
+  }
+})();
+
+  </script>
+</body>
+</html>

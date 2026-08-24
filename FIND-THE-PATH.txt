@@ -1,0 +1,83 @@
+Find the real SharePoint path
+=============================
+
+Copy link on the file is WRONG. It makes download.aspx.
+You need the address of the FOLDER that contains index.aspx.
+
+
+STEP 1
+------
+Open the Production site.
+Open Documents.
+Click into the folder until you SEE these files sitting there:
+
+  index.aspx
+  index.html
+  css
+  js
+
+(If you only see another folder named capacity-main, click into that too.)
+
+
+STEP 2
+------
+Click the address bar at the top of the BROWSER
+(the long bar that starts with https://fuseintegration.sharepoint.us ...)
+
+Copy THAT whole address.
+That is the folder URL. It is not the same as Copy link on the file.
+
+
+STEP 3
+------
+Look at that address.
+
+You will usually see something like:
+
+  ...AllItems.aspx?id=%2Fsites%2FProduction%2FShared%20Documents%2Fcapacity-main
+
+That id= part is the folder path, with codes:
+  %2F  means  /
+  %20  means  space
+
+So that example means:
+
+  /sites/Production/Shared Documents/capacity-main
+
+Then the file address is:
+
+  https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/index.aspx
+
+
+COMMON NESTED FOLDER
+--------------------
+If the folder URL ends with capacity-main/capacity-main
+then use this instead:
+
+<iframe src="https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/capacity-main/index.aspx" width="100%" height="1000" style="border:0;"></iframe>
+
+
+TRY THESE IN A NEW TAB
+----------------------
+Open each one. Stop when one does something other than 404.
+
+https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/index.aspx
+
+https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/capacity-main/index.aspx
+
+https://fuseintegration.sharepoint.us/sites/Production/Documents/capacity-main/index.aspx
+
+https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/index.html
+
+
+WHAT EACH RESULT MEANS
+----------------------
+Tracker loads
+  Use that exact address in the iframe src.
+
+File downloads
+  Path is right. SharePoint will not RUN the app.
+  Embed will keep failing. Need IT or another host.
+
+404 / something went wrong / file not found
+  Path is still wrong. Go back to Step 2 and copy the folder address bar.

@@ -1,0 +1,39 @@
+SharePoint will not run this app from Documents
+================================================
+
+When you open the file in SharePoint and it downloads, then
+goes blank, that is SharePoint blocking HTML. Embed cannot fix it.
+
+STOP using these in Embed:
+  .../Shared Documents/capacity-main/index.html
+  .../Shared Documents/capacity-main/CapacityTracker.html
+  .../Shared Documents/capacity-main/index.aspx
+
+
+USE THE APP IN ONE OF THESE TWO WAYS
+------------------------------------
+
+1. On your computer (works right now)
+   After SharePoint downloads CapacityTracker.html, open your
+   Downloads folder and double-click that file.
+   It should open in Edge or Chrome and stay open.
+
+2. As a real website (for the SharePoint page)
+   The tracker is also published here:
+
+   https://jmwilson92.github.io/capacity/
+
+   Open that in a new tab first. If you see the full app,
+   put THIS in the SharePoint Embed box:
+
+<iframe src="https://jmwilson92.github.io/capacity/" width="100%" height="1000" style="border:0;"></iframe>
+
+   If Embed blocks github.io, skip Embed. Add a Quick links
+   item that points at the same https://jmwilson92.github.io/capacity/
+   address. People click it and the app opens.
+
+
+NOTE
+----
+Data is saved in the browser (this computer), not in SharePoint
+Documents. That is expected until IT hosts it inside your tenant.

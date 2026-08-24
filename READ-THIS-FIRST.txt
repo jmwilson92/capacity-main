@@ -1,0 +1,34 @@
+Why the HTML app will not stay open on your SharePoint
+======================================================
+
+Your Production site is on sharepoint.us. It is locked so that
+.html and .aspx files in Documents are downloaded, not run.
+That is why Embed flashes and goes blank. No iframe code can
+change that.
+
+You asked for two things:
+  1. The tool lives on SharePoint
+  2. Everyone sees the same data
+
+Those are done with SHAREPOINT LISTS, not with a file in Documents.
+
+
+What to do
+----------
+1. Create the four lists on the Production site
+   (script: New-CapacityLists.ps1
+    or click path: CREATE-LISTS-IN-THE-BROWSER.txt)
+
+2. Put those lists on one SharePoint page
+   (New page → + → List → pick each list)
+
+3. Everyone with Contribute access uses that page.
+   Same work centers, people, time off, and work orders.
+
+4. To get the full Capacity Tracker SCREEN (planning board,
+   utilization colors) ON that page, IT has to approve a
+   custom app. Send them IT-REQUEST.txt.
+
+Until IT approves the app, the lists ARE the shared tool.
+They are not as pretty. They are on SharePoint. They are
+the same data for everyone.

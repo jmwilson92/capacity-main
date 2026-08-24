@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WIP Board</title>
+  <meta name="description" content="Real-time work-in-process board for the shop floor.">
+  <style>
+:root {
+  --paper: #f3efe6;
+  --paper-2: #e8e2d4;
+  --ink: #1b1814;
+  --ink-soft: #5c564c;
+  --rule: #d4cbb8;
+  --card: #fffcf6;
+  --card-2: #f7f1e6;
+  --accent: #1f6f6a;
+  --accent-ink: #0e3d3a;
+  --accent-soft: #d5ebe8;
+  --over: #9b2c1a;
+  --over-soft: #f6d9d2;
+  --tight: #9a4d0f;
+  --tight-soft: #f6e3c8;
+  --healthy: #2d6a3a;
+  --healthy-soft: #d7ead9;
+  --light: #3d5c78;
+  --light-soft: #d7e3ee;
+  --hold: #6b5a2e;
+  --shadow: 0 1px 0 rgba(27, 24, 20, 0.06), 0 12px 28px rgba(27, 24, 20, 0.08);
+  --radius: 14px;
+  --sans: "Segoe UI", "Source Sans 3", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Segoe UI Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
+body {
+  background-image:
+    radial-gradient(circle at 0 0, rgba(31, 111, 106, 0.07), transparent 32rem),
+    linear-gradient(180deg, #efe8d8 0%, var(--paper) 14rem);
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+#app { min-height: 100%; display: flex; flex-direction: column; }
+
+.top {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(243, 239, 230, 0.94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.top-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; padding: 0.85rem 1.25rem 0.35rem;
+}
+.brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.mark {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--accent-ink); color: #f4efe4;
+  display: grid; place-items: center; flex: 0 0 auto; font-weight: 700; font-size: 0.9rem;
+}
+.brand h1 { margin: 0; font-size: 1.05rem; font-weight: 650; letter-spacing: -0.02em; }
+.brand p { margin: 0; color: var(--ink-soft); font-size: 0.78rem; }
+.top-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+
+.tabs { display: flex; gap: 0.15rem; padding: 0 1rem 0.45rem; overflow-x: auto; }
+.tab {
+  border: 0; background: transparent; color: var(--ink-soft);
+  padding: 0.45rem 0.75rem; border-radius: 999px; cursor: pointer; white-space: nowrap;
+}
+.tab:hover { background: rgba(27, 24, 20, 0.05); color: var(--ink); }
+.tab.is-on { background: var(--accent-ink); color: #f6f1e7; }
+
+.wrap { width: min(1400px, 100%); margin: 0 auto; padding: 1.1rem 1.15rem 3rem; flex: 1; }
+
+.page-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.page-head h2 { margin: 0; font-size: 1.35rem; letter-spacing: -0.03em; }
+.page-head .lede { margin: 0.2rem 0 0; color: var(--ink-soft); }
+
+.filters { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+.kpis {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1rem;
+}
+.kpi, .card, .empty, .modal-card {
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.kpi { padding: 0.85rem 1rem; }
+.kpi .label { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi .value { font-size: 1.55rem; font-weight: 650; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin-top: 0.1rem; }
+.kpi .hint { color: var(--ink-soft); font-size: 0.78rem; }
+.kpi.over { background: linear-gradient(180deg, #fff8f5, var(--card)); }
+.kpi.tight { background: linear-gradient(180deg, #fff8ee, var(--card)); }
+
+.btn {
+  border: 1px solid var(--rule); background: var(--card); border-radius: 10px;
+  padding: 0.42rem 0.75rem; cursor: pointer; line-height: 1.2;
+}
+.btn:hover { border-color: #b9ae97; background: #fff; }
+.btn.primary { background: var(--accent-ink); color: #f6f1e7; border-color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--over); border-color: #e3b6ad; }
+.btn.danger:hover { background: var(--over-soft); }
+.btn.small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.field, .search {
+  border: 1px solid var(--rule); background: #fff; border-radius: 10px; padding: 0.42rem 0.65rem;
+}
+.search { min-width: 11rem; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: 999px; padding: 0.12rem 0.55rem;
+  font-size: 0.72rem; font-weight: 650; letter-spacing: 0.01em; background: var(--card-2);
+}
+.pill.queued { background: #ece7db; }
+.pill.in-progress { background: var(--accent-soft); color: var(--accent-ink); }
+.pill.on-hold { background: #efe4c4; color: var(--hold); }
+.pill.complete { background: #e4e4e4; color: #555; }
+.pill.overdue { background: var(--over-soft); color: var(--over); }
+.pill.high { background: var(--over-soft); color: var(--over); }
+.pill.medium { background: var(--tight-soft); color: var(--tight); }
+.pill.low { background: #ece7db; }
+
+/* Kanban board */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  min-height: 420px;
+}
+.column {
+  background: var(--card-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  min-height: 380px;
+  display: flex; flex-direction: column;
+}
+.column-head {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 650; font-size: 0.9rem;
+}
+.column-head .count {
+  background: var(--card); border-radius: 999px; padding: 0.1rem 0.5rem;
+  font-size: 0.75rem; font-variant-numeric: tabular-nums;
+}
+.column-body {
+  padding: 0.55rem;
+  flex: 1;
+  display: flex; flex-direction: column; gap: 0.5rem;
+  overflow-y: auto; max-height: calc(100vh - 280px);
+}
+
+.job-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 0.7rem 0.75rem;
+  box-shadow: 0 1px 0 rgba(27,24,20,0.04);
+  cursor: grab;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.job-card:hover { border-color: #b9ae97; box-shadow: var(--shadow); }
+.job-card.overdue { border-left: 3px solid var(--over); }
+.job-card .num {
+  font-weight: 650; font-size: 0.95rem; letter-spacing: -0.01em;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 0.4rem;
+}
+.job-card .title { color: var(--ink-soft); font-size: 0.82rem; margin: 0.15rem 0 0.4rem; }
+.job-card .meta {
+  display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;
+  font-size: 0.75rem; color: var(--ink-soft);
+}
+.job-card .hours {
+  font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink);
+}
+.job-card .schedule {
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--rule);
+  font-size: 0.78rem;
+}
+.job-card .sched-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+.job-card .sched-label { color: var(--ink-soft); }
+.job-card .sched-val { font-weight: 650; font-variant-numeric: tabular-nums; }
+.job-card .sched-row.warn .sched-val { color: var(--over); }
+.job-card .sched-row.muted { color: var(--ink-soft); font-size: 0.72rem; }
+.job-card.start-late { border-left: 3px solid var(--tight); }
+.job-card .actions {
+  display: flex; gap: 0.25rem; margin-top: 0.5rem; flex-wrap: wrap;
+}
+.center-dot {
+  width: 0.55rem; height: 0.55rem; border-radius: 50%;
+  display: inline-block; margin-right: 0.25rem; vertical-align: middle;
+}
+
+.empty {
+  padding: 2rem 1rem; text-align: center; color: var(--ink-soft);
+}
+.empty h3 { margin: 0 0 0.3rem; color: var(--ink); }
+
+.modal-card { width: min(480px, 92vw); padding: 1.15rem 1.15rem 1rem; }
+.modal-card h3 { margin: 0 0 0.25rem; }
+.form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem 0.75rem; margin: 1rem 0;
+}
+.form-grid label {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  font-size: 0.8rem; font-weight: 650; color: var(--ink-soft);
+}
+.form-grid .span-2 { grid-column: 1 / -1; }
+.form-grid input, .form-grid select, .form-grid textarea { font-weight: 400; color: var(--ink); }
+textarea { min-height: 3.5rem; resize: vertical; }
+.modal-actions { display: flex; justify-content: space-between; gap: 0.5rem; }
+
+dialog { border: 0; padding: 0; background: transparent; max-width: calc(100vw - 1.5rem); }
+dialog::backdrop { background: rgba(27, 24, 20, 0.45); }
+
+.toasts {
+  position: fixed; right: 1rem; bottom: 1rem;
+  display: flex; flex-direction: column; gap: 0.45rem; z-index: 40;
+}
+.toast {
+  background: var(--accent-ink); color: #f6f1e7;
+  padding: 0.65rem 0.8rem; border-radius: 10px; box-shadow: var(--shadow); max-width: 22rem;
+}
+.toast.error { background: var(--over); }
+
+.banner {
+  margin-bottom: 1rem; padding: 0.7rem 0.85rem; border-radius: 12px;
+  background: var(--accent-soft); color: var(--accent-ink);
+  display: flex; justify-content: space-between; gap: 0.75rem; align-items: center;
+}
+.banner.warn { background: var(--tight-soft); color: var(--tight); }
+
+@media (max-width: 1100px) {
+  .board { grid-template-columns: 1fr 1fr; }
+  .kpis { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .board { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+  </style>
+</head>
+<body>
+  <div id="app">
+    <p style="font-family:Segoe UI,sans-serif;padding:2rem">Loading WIP Board…</p>
+  </div>
+  <script>
+(function () {
+  const STORAGE_KEY = "capacity-tracker.v1";
+  const STATUSES = ["queued", "in-progress", "on-hold", "complete"];
+  const STATUS_LABEL = {
+    queued: "Queued",
+    "in-progress": "In Progress",
+    "on-hold": "On Hold",
+    complete: "Complete"
+  };
+
+  const state = {
+    data: { workCenters: [], people: [], workOrders: [], absences: [] },
+    query: "",
+    centerFilter: "",
+    assigneeFilter: "",
+    showComplete: false,
+    modal: null
+  };
+
+  // ---------- helpers ----------
+  function uid(prefix) {
+    return prefix + "_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36).slice(-4);
+  }
+  function num(v, fb) {
+    if (v === null || v === undefined || v === "") return fb;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
+  }
+  function parseDate(v) {
+    if (!v) return null;
+    if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    const s = String(v).trim();
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function formatISO(d) {
+    if (!d) return "";
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  function formatShort(d) {
+    if (!d) return "";
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return months[d.getMonth()] + " " + d.getDate();
+  }
+  function today() {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+  function isOverdue(wo) {
+    if (!wo || wo.status === "complete") return false;
+    const due = parseDate(wo.dueDate);
+    return due && due < today();
+  }
+  function isWeekday(d) {
+    const day = d.getDay();
+    return day !== 0 && day !== 6;
+  }
+  function addWorkDays(date, n) {
+    // n can be negative to go backward
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const step = n >= 0 ? 1 : -1;
+    let left = Math.abs(n);
+    while (left > 0) {
+      d.setDate(d.getDate() + step);
+      if (isWeekday(d)) left -= 1;
+    }
+    return d;
+  }
+  /**
+   * Must-start date = due date minus the working days needed for remaining hours.
+   * Assumes 8h productive day by default (can be refined later from center staffing).
+   * Returns { start, due, daysNeeded, lateToStart } or null if incomplete data.
+   */
+  function mustStartInfo(wo, hoursPerDay) {
+    if (!wo || wo.status === "complete") return null;
+    const due = parseDate(wo.dueDate);
+    if (!due) return null;
+    const rem = num(wo.remainingHours, num(wo.hours, 0));
+    if (rem <= 0) return null;
+    const hpd = hoursPerDay > 0 ? hoursPerDay : 8;
+    const daysNeeded = Math.ceil(rem / hpd);
+    // Last day of work is the due date (if weekday) or previous weekday
+    let lastWork = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    if (!isWeekday(lastWork)) {
+      lastWork = addWorkDays(lastWork, -1); // land on previous weekday
+    }
+    // Start is (daysNeeded - 1) work days before last work day
+    const start = daysNeeded <= 1 ? lastWork : addWorkDays(lastWork, -(daysNeeded - 1));
+    const lateToStart = start < today() && wo.status !== "in-progress";
+    return { start, due, daysNeeded, rem, lateToStart };
+  }
+  function centerById(id) {
+    return state.data.workCenters.find(c => String(c.id) === String(id));
+  }
+  function centerName(id) {
+    const c = centerById(id);
+    return c ? c.name : "Unassigned";
+  }
+  function centerColor(id) {
+    const c = centerById(id);
+    return (c && c.color) || "#888";
+  }
+  function personById(id) {
+    return (state.data.people || []).find(p => String(p.id) === String(id));
+  }
+  function personName(id) {
+    const p = personById(id);
+    return p ? p.name : "";
+  }
+  function assignWork(woId, techId, qaId) {
+    const wo = state.data.workOrders.find(o => o.id === woId);
+    if (!wo) return;
+    wo.assignedTechId = techId || "";
+    wo.assignedTechName = personName(techId) || "";
+    wo.assignedQaId = qaId || "";
+    wo.assignedQaName = personName(qaId) || "";
+    wo.assignedAt = new Date().toISOString();
+    save();
+    toast(wo.number + " assigned · Tech: " + (wo.assignedTechName || "—") + " · QA: " + (wo.assignedQaName || "—"));
+    render();
+  }
+
+  // ---------- storage ----------
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        state.data = {
+          workCenters: parsed.workCenters || [],
+          people: parsed.people || [],
+          workOrders: parsed.workOrders || [],
+          absences: parsed.absences || [],
+          version: parsed.version || 1,
+          updatedAt: parsed.updatedAt || Date.now()
+        };
+        return true;
+      }
+    } catch (e) { console.warn(e); }
+    return false;
+  }
+  function save() {
+    state.data.updatedAt = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  }
+  function importJson() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const parsed = JSON.parse(await file.text());
+        const incoming = parsed.data || parsed;
+        state.data = {
+          workCenters: incoming.workCenters || [],
+          people: incoming.people || [],
+          workOrders: incoming.workOrders || [],
+          absences: incoming.absences || [],
+          version: incoming.version || 1,
+          updatedAt: Date.now()
+        };
+        save();
+        toast("Data imported");
+        render();
+      } catch (err) {
+        toast(err.message || "Could not read file", "error");
+      }
+    };
+    input.click();
+  }
+  function exportJson() {
+    const payload = { exportedAt: new Date().toISOString(), data: state.data };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "capacity-" + formatISO(today()) + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ---------- actions ----------
+  function toast(msg, kind) {
+    const el = document.createElement("div");
+    el.className = "toast" + (kind === "error" ? " error" : "");
+    el.textContent = msg;
+    const host = document.querySelector(".toasts") || document.body;
+    host.appendChild(el);
+    setTimeout(() => el.remove(), 2800);
+  }
+
+  function setStatus(id, status) {
+    const wo = state.data.workOrders.find(o => o.id === id);
+    if (!wo) return;
+    wo.status = status;
+    if (status === "complete") wo.remainingHours = 0;
+    save();
+    toast(wo.number + " → " + STATUS_LABEL[status]);
+    render();
+  }
+
+  function updateRemaining(id, hours) {
+    const wo = state.data.workOrders.find(o => o.id === id);
+    if (!wo) return;
+    wo.remainingHours = Math.max(0, num(hours, 0));
+    if (wo.remainingHours === 0 && wo.status !== "complete") {
+      wo.status = "complete";
+    }
+    save();
+    render();
+  }
+
+  function openEdit(id) {
+    state.modal = { kind: "edit", id };
+    renderModal();
+  }
+
+  function openAssign(id) {
+    state.modal = { kind: "assign", id };
+    renderModal();
+  }
+
+  function closeModal() {
+    state.modal = null;
+    const dlg = document.getElementById("modal");
+    if (dlg) dlg.close();
+  }
+
+  function saveEdit(fields) {
+    const wo = state.data.workOrders.find(o => o.id === state.modal.id);
+    if (!wo) return;
+    wo.number = fields.number || wo.number;
+    wo.title = fields.title || "";
+    wo.workCenterId = fields.workCenterId || "";
+    wo.hours = num(fields.hours, wo.hours);
+    wo.remainingHours = num(fields.remainingHours, wo.remainingHours);
+    wo.dueDate = fields.dueDate || wo.dueDate;
+    wo.status = fields.status || wo.status;
+    wo.priority = fields.priority || "medium";
+    wo.notes = fields.notes || "";
+    if (wo.status === "complete") wo.remainingHours = 0;
+    save();
+    closeModal();
+    toast("Updated " + wo.number);
+    render();
+  }
+
+  // ---------- render ----------
+  function filteredOrders() {
+    let list = state.data.workOrders.slice();
+    if (!state.showComplete) list = list.filter(o => o.status !== "complete");
+    if (state.centerFilter) list = list.filter(o => String(o.workCenterId) === String(state.centerFilter));
+    if (state.assigneeFilter === "__unassigned__") {
+      list = list.filter(o => !o.assignedTechId && !o.assignedQaId);
+    } else if (state.assigneeFilter) {
+      list = list.filter(o =>
+        String(o.assignedTechId || "") === String(state.assigneeFilter) ||
+        String(o.assignedQaId || "") === String(state.assigneeFilter)
+      );
+    }
+    if (state.query) {
+      const q = state.query.toLowerCase();
+      list = list.filter(o =>
+        (o.number || "").toLowerCase().includes(q) ||
+        (o.title || "").toLowerCase().includes(q) ||
+        (o.notes || "").toLowerCase().includes(q)
+      );
+    }
+    // sort: overdue first, then late-to-start, then earliest must-start, then due date, then priority
+    list.sort((a, b) => {
+      const ao = isOverdue(a) ? 0 : 1;
+      const bo = isOverdue(b) ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      const ma = mustStartInfo(a, 8);
+      const mb = mustStartInfo(b, 8);
+      const la = ma && ma.lateToStart ? 0 : 1;
+      const lb = mb && mb.lateToStart ? 0 : 1;
+      if (la !== lb) return la - lb;
+      const sa = (ma && ma.start) || new Date(9999, 0, 1);
+      const sb = (mb && mb.start) || new Date(9999, 0, 1);
+      if (sa.getTime() !== sb.getTime()) return sa - sb;
+      const ad = parseDate(a.dueDate) || new Date(9999, 0, 1);
+      const bd = parseDate(b.dueDate) || new Date(9999, 0, 1);
+      if (ad.getTime() !== bd.getTime()) return ad - bd;
+      const pri = { high: 0, medium: 1, low: 2 };
+      return (pri[a.priority] || 1) - (pri[b.priority] || 1);
+    });
+    return list;
+  }
+
+  function kpis(orders) {
+    const open = orders.filter(o => o.status !== "complete");
+    const overdue = open.filter(isOverdue);
+    const inProg = open.filter(o => o.status === "in-progress");
+    const queued = open.filter(o => o.status === "queued");
+    const hold = open.filter(o => o.status === "on-hold");
+    const remHrs = open.reduce((s, o) => s + num(o.remainingHours, 0), 0);
+    return { open: open.length, overdue: overdue.length, inProg: inProg.length, queued: queued.length, hold: hold.length, remHrs };
+  }
+
+  function jobCard(wo) {
+    const overdue = isOverdue(wo);
+    const due = parseDate(wo.dueDate);
+    const msi = mustStartInfo(wo, 8);
+    const startLate = msi && msi.lateToStart;
+    return `
+      <div class="job-card ${overdue ? "overdue" : ""} ${startLate ? "start-late" : ""}" data-id="${wo.id}">
+        <div class="num">
+          <span>${esc(wo.number)}</span>
+          ${overdue ? '<span class="pill overdue">Overdue</span>' : startLate ? '<span class="pill overdue">Late to start</span>' : ""}
+        </div>
+        ${wo.title ? `<div class="title">${esc(wo.title)}</div>` : ""}
+        <div class="meta">
+          <span><span class="center-dot" style="background:${centerColor(wo.workCenterId)}"></span>${esc(centerName(wo.workCenterId))}</span>
+          <span class="hours">${num(wo.remainingHours, 0)}h rem</span>
+          <span class="pill ${wo.priority || "medium"}">${(wo.priority || "medium")}</span>
+          ${wo.instructionKind === "cable" ? '<span class="pill">Cable</span>' : ""}
+          ${wo.instructionKind === "product" || wo.productTag ? `<span class="pill">${esc(wo.productTag || "Product")}</span>` : ""}
+          ${wo.travelerProgress != null ? `<span class="pill open">${Number(wo.travelerProgress)}% WI</span>` : ""}
+          ${wo.currentOp ? `<span class="pill">${esc(wo.currentOp)}</span>` : ""}
+        </div>
+        <div class="meta" style="margin-top:0.25rem">
+          ${wo.assignedTechName ? `<span class="pill">Tech: ${esc(wo.assignedTechName)}</span>` : `<span class="pill" style="opacity:0.6">Tech: unassigned</span>`}
+          ${wo.assignedQaName ? `<span class="pill">QA: ${esc(wo.assignedQaName)}</span>` : `<span class="pill" style="opacity:0.6">QA: unassigned</span>`}
+        </div>
+        <div class="schedule">
+          ${msi ? `
+            <div class="sched-row ${startLate ? "warn" : ""}">
+              <span class="sched-label">Must start</span>
+              <span class="sched-val">${formatShort(msi.start)}</span>
+            </div>
+            <div class="sched-row">
+              <span class="sched-label">Due</span>
+              <span class="sched-val">${formatShort(msi.due)}</span>
+            </div>
+            <div class="sched-row muted">
+              <span>${msi.daysNeeded} work day${msi.daysNeeded === 1 ? "" : "s"} · ${msi.rem}h</span>
+            </div>
+          ` : due ? `
+            <div class="sched-row">
+              <span class="sched-label">Due</span>
+              <span class="sched-val">${formatShort(due)}</span>
+            </div>
+          ` : `<div class="sched-row muted">No due date</div>`}
+        </div>
+        <div class="actions">
+          ${wo.status !== "in-progress" ? `<button class="btn small" data-action="status" data-id="${wo.id}" data-status="in-progress">Start</button>` : ""}
+          ${wo.status !== "on-hold" ? `<button class="btn small" data-action="status" data-id="${wo.id}" data-status="on-hold">Hold</button>` : ""}
+          ${wo.status !== "queued" && wo.status !== "complete" ? `<button class="btn small" data-action="status" data-id="${wo.id}" data-status="queued">Queue</button>` : ""}
+          ${wo.status !== "complete" ? `<button class="btn small primary" data-action="status" data-id="${wo.id}" data-status="complete">Done</button>` : ""}
+          <button class="btn small" data-action="assign" data-id="${wo.id}">Assign</button>
+          <button class="btn small ghost" data-action="edit" data-id="${wo.id}">Edit</button>
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    const orders = filteredOrders();
+    const k = kpis(orders);
+    const byStatus = { queued: [], "in-progress": [], "on-hold": [], complete: [] };
+    for (const o of orders) {
+      const s = STATUSES.includes(o.status) ? o.status : "queued";
+      byStatus[s].push(o);
+    }
+
+    const centers = state.data.workCenters;
+
+    document.getElementById("app").innerHTML = `
+      <div class="top">
+        <div class="top-row">
+          <div class="brand">
+            <div class="mark">WIP</div>
+            <div>
+              <h1>WIP Board</h1>
+              <p>Live job status · shares data with Capacity Tracker</p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button class="btn" data-action="import">Import JSON</button>
+            <button class="btn" data-action="export">Export</button>
+            <button class="btn primary" data-action="reload">Reload</button>
+          </div>
+        </div>
+        
+        <nav class="tabs">
+          <a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>
+          <a class="tab" href="CapacityTracker.html#planning">Planning</a>
+          <a class="tab" href="WorkOrders.html">Work Orders</a>
+          <a class="tab" href="WipBoard.html">WIP Board</a>
+          <a class="tab" href="WorkInstructions.html">Work Instructions</a>
+          <a class="tab" href="Analytics.html">Analytics</a>
+          <a class="tab" href="Settings.html">Settings</a>
+        </nav>
+      </div>
+      <div class="wrap">
+        <div class="page-head">
+          <div>
+            <h2>Shop Floor Board</h2>
+            <p class="lede">Must-start dates calculated from remaining hours + due date (8h work days). Overdue and late-to-start rise to the top.</p>
+          </div>
+          <div class="filters">
+            <input class="search" type="search" placeholder="Search jobs…" value="${esc(state.query)}" data-bind="query">
+            <select class="field" data-bind="centerFilter">
+              <option value="">All work centers</option>
+              ${centers.map(c => `<option value="${c.id}" ${state.centerFilter === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+            </select>
+            <select class="field" data-bind="assigneeFilter">
+              <option value="">All assignees</option>
+              <option value="__unassigned__" ${state.assigneeFilter === "__unassigned__" ? "selected" : ""}>Unassigned</option>
+              ${(state.data.people || []).map(p => `<option value="${p.id}" ${String(state.assigneeFilter) === String(p.id) ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+            </select>
+            <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;color:var(--ink-soft)">
+              <input type="checkbox" data-bind="showComplete" ${state.showComplete ? "checked" : ""}> Show complete
+            </label>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi ${k.overdue ? "over" : ""}">
+            <div class="label">Open jobs</div>
+            <div class="value">${k.open}</div>
+            <div class="hint">${k.remHrs}h remaining</div>
+          </div>
+          <div class="kpi ${k.overdue ? "over" : ""}">
+            <div class="label">Overdue</div>
+            <div class="value">${k.overdue}</div>
+            <div class="hint">Need attention</div>
+          </div>
+          <div class="kpi">
+            <div class="label">In progress</div>
+            <div class="value">${k.inProg}</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Queued</div>
+            <div class="value">${k.queued}</div>
+          </div>
+          <div class="kpi">
+            <div class="label">On hold</div>
+            <div class="value">${k.hold}</div>
+          </div>
+        </div>
+
+        ${!state.data.workOrders.length ? `
+          <div class="empty card">
+            <h3>No work orders yet</h3>
+            <p>Import a capacity-data.json or open the Capacity Tracker and add jobs first.</p>
+            <button class="btn primary" data-action="import">Import JSON</button>
+          </div>
+        ` : `
+          <div class="board">
+            ${STATUSES.map(st => `
+              <div class="column" data-status="${st}">
+                <div class="column-head">
+                  <span>${STATUS_LABEL[st]}</span>
+                  <span class="count">${byStatus[st].length}</span>
+                </div>
+                <div class="column-body">
+                  ${byStatus[st].length ? byStatus[st].map(jobCard).join("") : `<div class="empty" style="padding:1.2rem 0.5rem;font-size:0.85rem">None</div>`}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        `}
+      </div>
+      <div class="toasts"></div>
+      <dialog id="modal"></dialog>
+    `;
+
+    // bind events after render
+    document.querySelectorAll("[data-bind]").forEach(el => {
+      el.addEventListener("input", onBind);
+      el.addEventListener("change", onBind);
+    });
+  }
+
+  function onBind(e) {
+    const el = e.target;
+    const key = el.getAttribute("data-bind");
+    if (key === "query") state.query = el.value;
+    if (key === "centerFilter") state.centerFilter = el.value;
+    if (key === "assigneeFilter") state.assigneeFilter = el.value;
+    if (key === "showComplete") state.showComplete = el.checked;
+    render();
+  }
+
+  function renderModal() {
+    const dlg = document.getElementById("modal");
+    if (!state.modal) { if (dlg) dlg.close(); return; }
+    const wo = state.data.workOrders.find(o => o.id === state.modal.id);
+    if (!wo) return;
+
+    if (state.modal.kind === "assign") {
+      const people = state.data.people || [];
+      dlg.innerHTML = `
+        <div class="modal-card">
+          <h3>Assign ${esc(wo.number)}</h3>
+          <p style="margin:0.25rem 0 0;color:var(--ink-soft);font-size:0.88rem">${esc(wo.title || "")} · ${esc(centerName(wo.workCenterId))}</p>
+          <form data-form="assign">
+            <div class="form-grid">
+              <label class="span-2">Technician
+                <select name="techId" class="field">
+                  <option value="">— Unassigned —</option>
+                  ${people.map(p => `<option value="${p.id}" ${String(wo.assignedTechId || "") === String(p.id) ? "selected" : ""}>${esc(p.name)}${p.workCenterId ? " (" + esc(centerName(p.workCenterId)) + ")" : ""}</option>`).join("")}
+                </select>
+              </label>
+              <label class="span-2">QA / Inspector
+                <select name="qaId" class="field">
+                  <option value="">— Unassigned —</option>
+                  ${people.map(p => `<option value="${p.id}" ${String(wo.assignedQaId || "") === String(p.id) ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn ghost" data-action="close-modal">Cancel</button>
+              <button type="submit" class="btn primary">Save assignment</button>
+            </div>
+          </form>
+        </div>`;
+      dlg.showModal();
+      return;
+    }
+
+    dlg.innerHTML = `
+      <div class="modal-card">
+        <h3>Edit ${esc(wo.number)}</h3>
+        <form data-form="edit">
+          <div class="form-grid">
+            <label>Number <input name="number" value="${esc(wo.number)}" required></label>
+            <label>Status
+              <select name="status">
+                ${STATUSES.map(s => `<option value="${s}" ${wo.status === s ? "selected" : ""}>${STATUS_LABEL[s]}</option>`).join("")}
+              </select>
+            </label>
+            <label class="span-2">Title <input name="title" value="${esc(wo.title || "")}"></label>
+            <label>Work center
+              <select name="workCenterId">
+                <option value="">—</option>
+                ${state.data.workCenters.map(c => `<option value="${c.id}" ${wo.workCenterId === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+              </select>
+            </label>
+            <label>Priority
+              <select name="priority">
+                <option value="high" ${wo.priority === "high" ? "selected" : ""}>High</option>
+                <option value="medium" ${wo.priority === "medium" || !wo.priority ? "selected" : ""}>Medium</option>
+                <option value="low" ${wo.priority === "low" ? "selected" : ""}>Low</option>
+              </select>
+            </label>
+            <label>Total hours <input name="hours" type="number" min="0" step="0.5" value="${num(wo.hours, 0)}"></label>
+            <label>Remaining hours <input name="remainingHours" type="number" min="0" step="0.5" value="${num(wo.remainingHours, 0)}"></label>
+            <label>Due date <input name="dueDate" type="date" value="${wo.dueDate || ""}"></label>
+            <label>Must start by
+              <input type="text" readonly value="${(() => {
+                const m = mustStartInfo(wo, 8);
+                return m ? formatISO(m.start) + (m.lateToStart ? " (late to start)" : "") : "—";
+              })()}" style="background:var(--card-2)">
+            </label>
+            <label class="span-2">Notes <textarea name="notes">${esc(wo.notes || "")}</textarea></label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" data-action="close-modal">Cancel</button>
+            <button type="submit" class="btn primary">Save</button>
+          </div>
+        </form>
+      </div>`;
+    dlg.showModal();
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // ---------- event bus ----------
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-action");
+    const id = btn.getAttribute("data-id") || "";
+    if (action === "status") {
+      setStatus(id, btn.getAttribute("data-status"));
+    } else if (action === "edit") {
+      openEdit(id);
+    } else if (action === "assign") {
+      openAssign(id);
+    } else if (action === "close-modal") {
+      closeModal();
+    } else if (action === "import") {
+      importJson();
+    } else if (action === "export") {
+      exportJson();
+    } else if (action === "reload") {
+      load();
+      toast("Reloaded from local storage");
+      render();
+    }
+  });
+
+  document.addEventListener("submit", (e) => {
+    const form = e.target.closest("[data-form]");
+    if (!form) return;
+    e.preventDefault();
+    if (form.getAttribute("data-form") === "edit") {
+      const fd = new FormData(form);
+      const fields = Object.fromEntries(fd.entries());
+      saveEdit(fields);
+    } else if (form.getAttribute("data-form") === "assign") {
+      const fd = new FormData(form);
+      const woId = state.modal && state.modal.id;
+      assignWork(woId, fd.get("techId") || "", fd.get("qaId") || "");
+      closeModal();
+    }
+  });
+
+  // boot
+  if (!load()) {
+    // try to seed from a known capacity-data if present (dev convenience)
+    fetch("capacity-data.json").then(r => r.json()).then(d => {
+      state.data = {
+        workCenters: d.workCenters || [],
+        people: d.people || [],
+        workOrders: d.workOrders || [],
+        absences: d.absences || [],
+        version: d.version || 1,
+        updatedAt: Date.now()
+      };
+      save();
+      render();
+    }).catch(() => render());
+  } else {
+    render();
+  }
+})();
+  </script>
+</body>
+</html>

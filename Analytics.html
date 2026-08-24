@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analytics</title>
+  <style>
+:root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--over:#9b2c1a;--over-soft:#f6d9d2;--tight:#9a4d0f;--tight-soft:#f6e3c8;--healthy:#2d6a3a;--healthy-soft:#d7ead9;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px}
+.top{position:sticky;top:0;z-index:20;background:rgba(243,239,230,.95);border-bottom:1px solid var(--rule)}
+.top-row{display:flex;justify-content:space-between;padding:.85rem 1.25rem .35rem}.brand{display:flex;gap:.75rem;align-items:center}
+.mark{width:36px;height:36px;border-radius:10px;background:var(--accent-ink);color:#f4efe4;display:grid;place-items:center;font-weight:700;font-size:.7rem}
+.brand h1{margin:0;font-size:1.05rem}.brand p{margin:0;color:var(--ink-soft);font-size:.78rem}
+.tabs{display:flex;gap:.1rem;padding:0 1rem .4rem;overflow-x:auto;flex-wrap:wrap}
+.tab{border:0;background:transparent;color:var(--ink-soft);padding:.45rem .7rem;border-radius:999px;text-decoration:none;white-space:nowrap;font-size:.9rem}
+.tab.is-on{background:var(--accent-ink);color:#f6f1e7}
+.wrap{width:min(1100px,100%);margin:0 auto;padding:1.15rem}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+.kpi{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:.85rem 1rem;box-shadow:var(--shadow)}
+.kpi .label{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.04em}
+.kpi .value{font-size:1.55rem;font-weight:650}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow);margin-bottom:1rem}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.5rem .4rem;border-bottom:1px solid var(--rule)}
+th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
+.pill{display:inline-flex;border-radius:999px;padding:.1rem .5rem;font-size:.72rem;font-weight:650;background:#eee}
+.btn{border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:.4rem .75rem;text-decoration:none;color:inherit;display:inline-block}
+.btn.primary{background:var(--accent-ink);color:#f6f1e7;border-color:var(--accent-ink)}
+@media(max-width:800px){.kpis{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+<div class="top">
+  <div class="top-row">
+    <div class="brand"><div class="mark">AN</div><div><h1>Analytics</h1><p>Capacity · load · downtime · WI progress</p></div></div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</div>
+<div class="wrap" id="main">Loading…</div>
+<script src="nav.js"></script>
+<script>
+(function(){
+const STORAGE_KEY="capacity-tracker.v1";
+function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(e){return {};}}
+function utilClass(pct){if(pct==null||isNaN(pct))return "";if(pct>100)return "over";if(pct>=85)return "tight";if(pct>=50)return "ok";return "light";}
+
+document.getElementById("tabs").innerHTML=(window.SuiteNav&&SuiteNav.html("Analytics"))||"";
+
+const d=load();
+const wos=d.workOrders||[];
+const centers=d.workCenters||[];
+const people=d.people||[];
+const downtime=d.downtime||[];
+const open=wos.filter(o=>o.status!=="complete");
+const inProg=open.filter(o=>o.status==="in-progress");
+const queued=open.filter(o=>o.status==="queued");
+const hold=open.filter(o=>o.status==="on-hold");
+const remHrs=open.reduce((s,o)=>s+(Number(o.remainingHours)||0),0);
+const assigned=open.filter(o=>o.assignedTechId||o.assignedQaId).length;
+const withWi=open.filter(o=>o.travelerProgress!=null).length;
+const avgWi=withWi?Math.round(open.filter(o=>o.travelerProgress!=null).reduce((s,o)=>s+Number(o.travelerProgress),0)/withWi):0;
+const openDt=downtime.filter(x=>!x.endedAt&&!x.end).length;
+const productTime=d.timeByProduct||{};
+
+// rough center load from remaining hours
+const byCenter={};
+centers.forEach(c=>{byCenter[c.id]={name:c.name,hrs:0,jobs:0};});
+open.forEach(o=>{
+  const id=o.workCenterId||"_";
+  if(!byCenter[id])byCenter[id]={name:id,hrs:0,jobs:0};
+  byCenter[id].hrs+=Number(o.remainingHours)||0;
+  byCenter[id].jobs+=1;
+});
+
+document.getElementById("main").innerHTML=`
+  <div class="kpis">
+    <div class="kpi"><div class="label">Open jobs</div><div class="value">${open.length}</div></div>
+    <div class="kpi"><div class="label">In progress</div><div class="value">${inProg.length}</div></div>
+    <div class="kpi"><div class="label">Hours remaining</div><div class="value">${Math.round(remHrs)}</div></div>
+    <div class="kpi"><div class="label">Avg WI progress</div><div class="value">${avgWi}%</div></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="label">Queued</div><div class="value">${queued.length}</div></div>
+    <div class="kpi"><div class="label">On hold</div><div class="value">${hold.length}</div></div>
+    <div class="kpi"><div class="label">Assigned</div><div class="value">${assigned}/${open.length||1}</div></div>
+    <div class="kpi"><div class="label">Open downtime</div><div class="value">${openDt}</div></div>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 .75rem">Load by work center (open remaining hours)</h3>
+    <table><thead><tr><th>Work center</th><th>Open jobs</th><th>Hours rem</th></tr></thead>
+    <tbody>${Object.values(byCenter).sort((a,b)=>b.hrs-a.hrs).map(c=>`<tr>
+      <td>${esc(c.name)}</td><td>${c.jobs}</td><td>${Math.round(c.hrs*10)/10}</td></tr>`).join("")||"<tr><td colspan=3>No data</td></tr>"}
+    </tbody></table>
+    <p style="margin:1rem 0 0;color:var(--ink-soft);font-size:.88rem">Detailed week-by-week capacity is on <a href="CapacityTracker.html#planning">Planning</a>.</p>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 .75rem">Time logged by product (WI timers)</h3>
+    ${!Object.keys(productTime).length?'<p style="color:var(--ink-soft)">No WI time logged yet.</p>':`
+    <table><thead><tr><th>Product</th><th>Minutes</th></tr></thead>
+    <tbody>${Object.entries(productTime).sort((a,b)=>b[1]-a[1]).map(([k,ms])=>`<tr><td>${esc(k)}</td><td>${Math.round(ms/60000)}</td></tr>`).join("")}</tbody></table>`}
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 .5rem">Downtime</h3>
+    <p style="color:var(--ink-soft);margin:0 0 .75rem">${openDt} open event(s) · ${downtime.length} total logged</p>
+    <a class="btn primary" href="DowntimeLogger.html">Open downtime logger</a>
+  </div>
+`;
+})();
+</script>
+</body>
+</html>
