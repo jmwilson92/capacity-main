@@ -1,0 +1,15 @@
+Capacity Tracker — SharePoint embed code
+========================================
+
+DO NOT embed a Shared Documents file. SharePoint downloads HTML
+and the page goes blank. That cannot be fixed in Embed.
+
+Use the website (after GitHub Pages is turned on):
+
+<iframe src="https://jmwilson92.github.io/capacity/" width="100%" height="1000" style="border:0;"></iframe>
+
+Turn Pages on: GitHub repo → Settings → Pages
+→ Build: Deploy from a branch → Branch: main → folder: / (root) → Save
+OR Build: GitHub Actions, then re-run the pages workflow.
+
+Until then, open the downloaded CapacityTracker.html on your PC.
