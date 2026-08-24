@@ -1,4 +1,4 @@
-/* Settings page logic - keep outside Settings.html to avoid script-in-HTML parse issues */
+/* Settings page logic */
 (function () {
   var STORAGE_KEY = "capacity-tracker.v1";
   var COLORS = ["#1f6f6a", "#1d4e89", "#8a3b12", "#6b4c9a", "#3d5a40", "#9a3412", "#0f4c5c", "#7a2f4b"];
@@ -75,15 +75,8 @@
     if (window.SuiteRoles && SuiteRoles.optionsHtml) return SuiteRoles.optionsHtml(sel);
     var cur = normRole(sel);
     return ROLE_ORDER.map(function (r) {
-      return (
-        "<option value=\"" +
-        r +
-        "\"" +
-        (r === cur ? " selected" : "") +
-        ">" +
-        ROLE_LABELS[r] +
-        "</option>"
-      );
+      var selected = r === cur ? " selected" : "";
+      return "<option value='" + r + "'" + selected + ">" + ROLE_LABELS[r] + "</option>";
     }).join("");
   }
 
@@ -276,7 +269,7 @@
       '<label>Work center<select class="field" name="workCenterId"><option value="">Unassigned</option>' +
       centers
         .map(function (c) {
-          return '<option value="' + esc(c.id) + '">' + esc(c.name) + "</option>";
+          return "<option value='" + esc(c.id) + "'>" + esc(c.name) + "</option>";
         })
         .join("") +
       "</select></label>" +
