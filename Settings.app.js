@@ -151,7 +151,7 @@
       html += "<button type=button class='btn primary' data-action=new-emp>Add employee</button></div>";
 
       if (!people.length) {
-        html += "<div class=card><p class=help style='margin:0'>No people yet. Add employees here or in Capacity Tracker roster.</p></div>";
+        html += "<div class=card><p class=help style='margin:0'>No people yet. Add the first employee here (PIN starts at 1111), then sign in from any page.</p></div>";
       } else {
         for (var pi = 0; pi < people.length; pi++) {
           var p = people[pi];
@@ -244,7 +244,7 @@
     html += "</select></label>";
     html += "<label class=span-2>Hours / week<input class=field name=hoursPerWeek type=number value=40 min=0 step=0.5></label>";
     html += "</div>";
-    html += "<p class=help>PIN starts at 1111. Change it after first Work Orders login.</p>";
+    html += "<p class=help>PIN starts at 1111. After first sign-in they must change it.</p>";
     html += "<div style='display:flex;justify-content:space-between;margin-top:.5rem'>";
     html += "<button type=button class=btn data-action=close>Cancel</button>";
     html += "<button type=submit class='btn primary'>Save</button>";
@@ -402,9 +402,21 @@
     }
   });
 
-  try {
-    render();
-  } catch (bootErr) {
-    showError(bootErr && bootErr.message ? bootErr.message : String(bootErr));
+  function boot() {
+    try {
+      var d = load();
+      var hasPeople = (d.people || []).length > 0;
+      if (window.SuiteNav && SuiteNav.requireAuth && hasPeople) {
+        SuiteNav.requireAuth(function () {
+          render();
+        });
+      } else {
+        render();
+      }
+    } catch (bootErr) {
+      showError(bootErr && bootErr.message ? bootErr.message : String(bootErr));
+    }
   }
+
+  boot();
 })();
