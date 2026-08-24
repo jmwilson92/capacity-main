@@ -1,0 +1,11 @@
+Downtime is in SuiteNav (nav.js) used by Analytics/Settings.
+
+Hardcoded shells still need the link:
+- WorkOrders.html shell()
+- WorkInstructions.html shell()
+- WipBoard.html
+- CapacityTracker.html
+- DowntimeLogger.html (done)
+
+Direct URL always works:
+  http://localhost:8765/DowntimeLogger.html
