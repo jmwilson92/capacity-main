@@ -56,7 +56,6 @@ label{display:flex;flex-direction:column;gap:.25rem;font-size:.8rem;font-weight:
 <div id="app">Loading…</div>
 <script>
 (function(){
-// ---- inline time tracker (no external file required) ----
 var TT_ACTIVE="capacity-tracker.activeTime";
 var TT_STORE="capacity-tracker.v1";
 function ttRead(){try{return JSON.parse(sessionStorage.getItem(TT_ACTIVE)||"null");}catch(e){return null;}}
@@ -214,7 +213,14 @@ function shell(inner,title){
   try{if(window.TimeTrack&&TimeTrack.current()){var c=TimeTrack.current();live=' <span class="pill open">Timing '+esc(c.workOrderNumber||"")+(c.chargeCode?" · "+esc(c.chargeCode):"")+"</span>";}}catch(e){}
   return'<div class="top"><div class="top-row"><div class="brand"><div class="mark">WO</div><div><h1>Work Orders</h1><p>'+(title||"Check in · charge codes · time")+'</p></div></div>'+(state.session?'<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><span class="pill open">'+who+'</span>'+live+'<button class="btn small" data-action="logout">Sign out</button></div>':'')+'</div><nav class="tabs"><a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a><a class="tab" href="CapacityTracker.html#planning">Planning</a><a class="tab is-on" href="WorkOrders.html">Work Orders</a><a class="tab" href="WipBoard.html">WIP Board</a><a class="tab" href="WorkInstructions.html">Work Instructions</a><a class="tab" href="Analytics.html">Analytics</a><a class="tab" href="Settings.html">Settings</a></nav></div><div class="wrap">'+inner+'</div><div class="toasts"></div><dialog id="modal"></dialog>';
 }
-function renderLogin(){return'<div class="login-wrap"><div class="login-card card"><h2 style="margin:0 0 .5rem">Work Orders</h2><p style="color:var(--ink-soft);font-size:.9rem">PIN to check in. Time starts on Check in and stops on Exit.</p><form data-form="login" style="margin-top:1rem"><label>PIN<input class="field" name="pin" type="password" inputmode="numeric" required></label>'+(state.loginError?'<p style="color:var(--over)">'+esc(state.loginError)+'</p>':'')+'<button class="btn primary" type="submit" style="width:100%;margin-top:1rem">Sign in</button></form><p style="font-size:.8rem;color:var(--ink-soft);margin-top:1rem">Default PIN 1111 — change it after first login.</p></div></div>';}
+function renderLogin(){
+  var people=(state.data.people||[]).slice().sort(function(a,b){return String(a.name||"").localeCompare(String(b.name||""));});
+  var opts='<option value="">Select your name</option>'+people.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.name||"Unnamed")+'</option>';}).join("");
+  if(!people.length){
+    return'<div class="login-wrap"><div class="login-card card"><h2 style="margin:0 0 .5rem">Work Orders</h2><p style="color:var(--ink-soft);font-size:.9rem">No employees in the roster yet.</p><p><a href="Settings.html">Open Settings</a> and add people (PIN starts at 1111).</p></div></div>';
+  }
+  return'<div class="login-wrap"><div class="login-card card"><h2 style="margin:0 0 .5rem">Sign in</h2><p style="color:var(--ink-soft);font-size:.9rem">Select your name and enter your PIN. First-time PIN is 1111.</p><form data-form="login" style="margin-top:1rem"><label>Name<select class="field" name="personId" required>'+opts+'</select></label><label style="margin-top:.65rem">PIN<input class="field" name="pin" type="password" inputmode="numeric" required></label>'+(state.loginError?'<p style="color:var(--over)">'+esc(state.loginError)+'</p>':'')+'<button class="btn primary" type="submit" style="width:100%;margin-top:1rem">Sign in</button></form></div></div>';
+}
 function renderList(){
   var list=filtered();
   var openT=(state.data.travelers||[]).filter(function(t){return t.status==="open";});
@@ -309,11 +315,19 @@ document.addEventListener("submit",function(e){
   }
   var login=e.target.closest("[data-form=login]");
   if(login){
-    e.preventDefault();var fd3=new FormData(login);var user=personByPin(fd3.get("pin"));
-    if(!user){state.loginError="Invalid PIN (try 1111 first time)";render();return;}
+    e.preventDefault();
+    var fd3=new FormData(login);
+    var pid=String(fd3.get("personId")||"");
+    var pin=String(fd3.get("pin")||"");
+    var user=(state.data.people||[]).find(function(p){return String(p.id)===pid;});
+    if(!user){state.loginError="Select your name.";render();return;}
+    if(effectivePin(user)!==pin){state.loginError="Wrong PIN. First-time default is 1111.";render();return;}
     state.session={userId:user.id,name:user.name,role:user.role||"tech",personId:user.id};
     sessionStorage.setItem(SESSION_KEY,JSON.stringify(state.session));
-    state.loginError="";state.forceChangePin=mustChangePin(user);toast("Signed in as "+user.name);render();
+    state.loginError="";
+    state.forceChangePin=mustChangePin(user);
+    toast("Signed in as "+user.name);
+    render();
   }
 });
 
