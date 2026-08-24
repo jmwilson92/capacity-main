@@ -338,7 +338,8 @@
       { href: "WorkOrders.html", label: "Work Orders", match: ["WorkOrders"] },
       { href: "WipBoard.html", label: "WIP Board", match: ["WipBoard"] },
       { href: "WorkInstructions.html", label: "Work Instructions", match: ["WorkInstructions"] },
-      { href: "Analytics.html", label: "Analytics", match: ["Analytics", "DowntimeLogger"] },
+      { href: "DowntimeLogger.html", label: "Downtime", match: ["DowntimeLogger"] },
+      { href: "Analytics.html", label: "Analytics", match: ["Analytics"] },
       { href: "Settings.html", label: "Settings", match: ["Settings", "SkillsMatrix"] }
     ],
     currentFile: function () {
