@@ -6,19 +6,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Capacity Tracker</title>
   <meta name="description" content="Track work center capacity, people hours, and work order load.">
-  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <div id="app">
     <p style="font-family:Segoe UI,sans-serif;padding:2rem">Loading Capacity Tracker…</p>
   </div>
-  <script src="js/calc.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/sharepoint.js"></script>
-  <script src="js/sync.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/graph.js"></script>
-  <script src="js/filestore.js"></script>
-  <script src="js/app.js"></script>
+  <script src="calc.js"></script>
+  <script src="store.js"></script>
+  <script src="sharepoint.js"></script>
+  <script src="sync.js"></script>
+  <script src="auth.js"></script>
+  <script src="graph.js"></script>
+  <script src="filestore.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
