@@ -38,8 +38,8 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 .empty{text-align:center;padding:2rem;color:var(--ink-soft)}
 .login-wrap{min-height:70vh;display:grid;place-items:center}.login-card{width:min(400px,100%)}
 .toasts{position:fixed;right:1rem;bottom:1rem;z-index:40}.toast{background:var(--accent-ink);color:#f6f1e7;padding:.65rem .8rem;border-radius:10px;margin-top:.4rem}
-dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgba(27,24,20,.45)}
-.modal-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1.15rem;width:min(520px,94vw);box-shadow:var(--shadow)}
+dialog{border:0;padding:0;background:transparent;overflow:visible}dialog::backdrop{background:rgba(27,24,20,.45)}
+.modal-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1.15rem;width:min(520px,94vw);box-shadow:var(--shadow);max-height:85vh;overflow:auto}
 .form-grid{display:grid;gap:.65rem;margin:1rem 0}label{display:flex;flex-direction:column;gap:.25rem;font-size:.8rem;font-weight:650;color:var(--ink-soft)}
 .traveler-bar{background:var(--accent-ink);color:#f6f1e7;border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:1rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .op-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.55rem}
@@ -56,13 +56,10 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
 .media-item .cap,.media-item a{display:block;padding:.4rem .5rem;font-size:.78rem;color:var(--accent-ink);word-break:break-all}
 .qc-block{margin-top:.85rem;padding-top:.65rem;border-top:1px dashed var(--rule)}
 .choice-grid{display:flex;flex-direction:column;gap:.45rem;margin:.5rem 0}
-.choice{display:block;border:1px solid var(--rule);border-radius:12px;padding:.7rem .85rem;cursor:pointer;background:#fff}
+.choice{display:block;border:1px solid var(--rule);border-radius:12px;padding:.7rem .85rem;cursor:pointer;background:#fff;text-align:left;width:100%;font:inherit;color:inherit}
 .choice:hover{border-color:var(--accent)}
 .choice.is-on{border-color:var(--accent-ink);background:var(--accent-soft);font-weight:650}
-.choice input{margin-right:.5rem}
-.modal-card{max-height:85vh;overflow:auto}
-dialog{overflow:visible}
-
+.notes-box{white-space:pre-wrap;background:var(--card-2);border-radius:10px;padding:.75rem;font-size:.9rem;line-height:1.45}
 </style>
 </head>
 <body>
@@ -104,11 +101,11 @@ const DEFAULT_ASSEMBLY=[
 const state={
   data:{workCenters:[],people:[],workOrders:[],assemblies:[],cableOps:[],assemblyOps:[],travelers:[]},
   session:null, mode:"all", centerFilter:"", query:"", loginError:"",
-  view:"list", // list | run
+  view:"list",
   activeTravelerId:null, activeOpId:null, activeStepIndex:null
 };
 
-function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function esc(s){return String(s??"").replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,""");}
 function uid(p){return p+"_"+Math.random().toString(36).slice(2,9);}
 function nowISO(){return new Date().toISOString();}
 function formatDur(ms){if(!ms)return "0m";const m=Math.round(ms/60000);if(m<60)return m+"m";return Math.floor(m/60)+"h "+(m%60)+"m";}
@@ -130,7 +127,6 @@ function applyWiHoursToOrder(wo){
   var total=asmProjectedHours(asm);
   wo.hoursFromWi=true;
   wo.hours=total;
-  // remaining = projected minus completed step hours on open traveler if any
   var t=(state.data.travelers||[]).find(function(x){return String(x.workOrderId)===String(wo.id)&&x.status==="open";});
   if(t && t.steps){
     var doneH=t.steps.filter(function(s){return s.done;}).reduce(function(sum,s){return sum+(Number(s.projectedHours)||0);},0);
@@ -138,6 +134,13 @@ function applyWiHoursToOrder(wo){
   } else {
     wo.remainingHours=total;
   }
+}
+function kindLabel(kind){
+  if(kind==="task") return "Task Order";
+  if(kind==="assembly") return "Assembly/POD";
+  if(kind==="product") return "Product/LRU";
+  if(kind==="cable") return "Cable";
+  return kind||"Not set";
 }
 function centerName(id){const c=(state.data.workCenters||[]).find(x=>String(x.id)===String(id));return c?c.name:"—";}
 function toast(m){const el=document.createElement("div");el.className="toast";el.textContent=m;(document.querySelector(".toasts")||document.body).appendChild(el);setTimeout(()=>el.remove(),2800);}
@@ -151,6 +154,15 @@ function ensureOps(list, defaults){
       qa:o.qa&&o.qa.length?o.qa:(d.qa||[]),
       media:Array.isArray(o.media)?o.media:[]
     });
+  });
+}
+
+function taskStepsForWo(wo){
+  var raw = wo && Array.isArray(wo.taskSteps) && wo.taskSteps.length
+    ? wo.taskSteps
+    : ["Complete task order"];
+  return normalizeSteps(raw).map(function(s){
+    return {text:s.text||"Task step", media:s.media||[], stepType:s.stepType||"assembly", projectedHours:Number(s.projectedHours)||0, workCenterId:s.workCenterId||"", done:false};
   });
 }
 
@@ -215,13 +227,13 @@ function syncWo(t){
   wo.travelerId=t.id;
   wo.travelerStatus=t.status;
   wo.hoursLogged=Math.round(((t.totalMs||0)/36e5)*100)/100;
-  if(t.kind==="product"){
+  if(t.kind==="product" || t.kind==="task"){
     const done=(t.steps||[]).filter(s=>s.done).length;
     const total=(t.steps||[]).length||1;
     wo.travelerProgress=Math.round(done/total*100);
     const cur=(t.steps||[]).find(s=>!s.done);
-    wo.currentOp=cur?(stepTypeLabel(cur.stepType)+': '+stepText(cur)):"Complete";
-    applyWiHoursToOrder(wo);
+    wo.currentOp=cur?stepText(cur):(t.kind==="task"?"Task complete":"Complete");
+    if(t.kind==="product") applyWiHoursToOrder(wo);
   } else {
     const ops=opLib(t.kind==="assembly"?"assembly":"cable");
     const done=(t.completedOps||[]).length;
@@ -233,7 +245,6 @@ function syncWo(t){
 }
 
 function startTraveler(wo){
-  // resume open traveler if exists
   let t=(state.data.travelers||[]).find(x=>String(x.workOrderId)===String(wo.id)&&x.status==="open");
   if(!t){
     const kind=wo.instructionKind||"cable";
@@ -253,7 +264,9 @@ function startTraveler(wo){
       opRecords:{},
       totalMs:0,
       currentOpName:"",
-      productKey:wo.productTag||kind
+      productKey:wo.productTag||kind,
+      notes:wo.notes||"",
+      taskNotes:wo.taskNotes||wo.notes||""
     };
     if(kind==="product"){
       const asm=asmById(wo.assemblyId);
@@ -261,6 +274,10 @@ function startTraveler(wo){
       t.steps=normalizeSteps(asm?asm.steps:[]).map(function(s){return {text:s.text, media:s.media||[], stepType:s.stepType||'assembly', projectedHours:Number(s.projectedHours)||0, workCenterId:s.workCenterId||'', done:false};});
       applyWiHoursToOrder(wo);
       t.qa=(asm&&asm.qa?asm.qa:[]).map(function(q){return {text:typeof q==="string"?q:q.text, result:null};});
+    } else if(kind==="task"){
+      t.assemblyName="Task Order";
+      t.steps=taskStepsForWo(wo);
+      t.taskNotes=wo.taskNotes||wo.notes||"";
     }
     state.data.travelers.unshift(t);
   }
@@ -337,13 +354,13 @@ function renderList(){
   const list=filtered();
   const openT=(state.data.travelers||[]).filter(t=>t.status==="open");
   return shell(
-    '<div class="page-head"><div><h2>Work Orders</h2><p class="lede">Check in opens the full instruction traveler (generic ops or product steps).</p></div></div>'+
+    '<div class="page-head"><div><h2>Work Orders</h2><p class="lede">Cable · Assembly · Product · Task Order. Check in opens the traveler.</p></div></div>'+
     '<div class="subtabs">'+
     '<button class="subtab '+(state.mode==="all"?"is-on":"")+'" data-action="mode" data-mode="all">All open</button>'+
     '<button class="subtab '+(state.mode==="mine"?"is-on":"")+'" data-action="mode" data-mode="mine">My work orders</button></div>'+
     (openT.length?'<div class="card" style="margin-bottom:1rem"><h3 style="margin:0 0 .65rem;font-size:.95rem">Resume open travelers</h3>'+
       openT.map(t=>'<div style="display:flex;justify-content:space-between;gap:.5rem;margin-bottom:.45rem;align-items:center">'+
-        '<div><b>'+esc(t.workOrderNumber)+'</b> · '+esc(t.kind)+' · '+formatDur(t.totalMs)+'</div>'+
+        '<div><b>'+esc(t.workOrderNumber)+'</b> · '+esc(kindLabel(t.kind))+' · '+formatDur(t.totalMs)+'</div>'+
         '<button class="btn primary small" data-action="resume" data-id="'+t.id+'">Resume</button></div>').join("")+'</div>':'')+
     '<div class="card"><div class="filters">'+
     '<input class="field" style="min-width:12rem" placeholder="Search…" value="'+esc(state.query)+'" data-bind="query">'+
@@ -354,7 +371,7 @@ function renderList(){
     '<div style="overflow-x:auto"><table><thead><tr><th>Job</th><th>Center</th><th>WI type</th><th>Assigned</th><th>Progress</th><th></th></tr></thead><tbody>'+
     list.map(wo=>'<tr><td><b>'+esc(wo.number)+'</b>'+(wo.title?'<div style="font-size:.8rem;color:var(--ink-soft)">'+esc(wo.title)+'</div>':'')+'</td>'+
       '<td>'+esc(centerName(wo.workCenterId))+'</td>'+
-      '<td>'+(wo.productTag||wo.instructionKind?'<span class="pill open">'+esc(wo.productTag||wo.instructionKind)+'</span>':'<span class="pill">Not set</span>')+'</td>'+
+      '<td>'+(wo.productTag||wo.instructionKind?'<span class="pill open">'+esc(wo.productTag||kindLabel(wo.instructionKind))+'</span>':'<span class="pill">Not set</span>')+'</td>'+
       '<td style="font-size:.85rem">'+(wo.assignedTechName?("Tech: "+esc(wo.assignedTechName)+"<br>"):"")+(wo.assignedQaName?("QA: "+esc(wo.assignedQaName)):(!wo.assignedTechName?"—":""))+'</td>'+
       '<td>'+(wo.travelerProgress!=null?wo.travelerProgress+"%":"—")+(wo.currentOp?'<div style="font-size:.75rem;color:var(--ink-soft)">'+esc(wo.currentOp)+'</div>':'')+'</td>'+
       '<td style="white-space:nowrap"><button class="btn small" data-action="tag-wo" data-id="'+wo.id+'">WI type</button> '+
@@ -368,7 +385,36 @@ function renderRun(){
   const t=trById(state.activeTravelerId);
   if(!t){state.view="list";return renderList();}
   if(t.kind==="product") return renderRunProduct(t);
+  if(t.kind==="task") return renderRunTask(t);
   return renderRunGeneric(t);
+}
+
+function renderRunTask(t){
+  const steps=t.steps||[];
+  const done=steps.filter(s=>s.done).length;
+  const notes=t.taskNotes||t.notes||"";
+  return shell(
+    '<div class="traveler-bar"><div><div style="font-size:1.15rem;font-weight:650">'+esc(t.workOrderNumber)+' · Task Order</div>'+
+    '<div style="opacity:.85;font-size:.85rem">'+esc(t.workOrderTitle||"")+' · '+formatDur(t.totalMs)+' · '+done+'/'+steps.length+' steps</div></div>'+
+    '<div style="display:flex;gap:.5rem"><button class="btn small" style="background:#fff" data-action="exit-run">Exit</button>'+
+    (t.status==="open"?'<button class="btn small success" data-action="finish-traveler">Mark complete</button>':'')+'</div></div>'+
+    '<div class="card" style="margin-bottom:1rem">'+
+    '<h3 style="margin:0 0 .5rem">Task</h3>'+
+    '<p style="margin:0 0 .65rem">'+esc(t.workOrderTitle||t.workOrderNumber)+'</p>'+
+    (notes?'<div class="notes-box">'+esc(notes)+'</div>':'<p style="color:var(--ink-soft);font-size:.9rem;margin:0">No extra notes on this task order. Use job title / WO notes in Capacity Tracker if needed.</p>')+
+    '<p style="color:var(--ink-soft);font-size:.82rem;margin:.75rem 0 0">Not tied to a BOM or product WI. Hours stay as entered on the work order. Progress rolls to WIP.</p>'+
+    '</div>'+
+    '<div class="card"><h3 style="margin:0 0 .65rem">Checklist</h3><ul class="step-list">'+
+    steps.map(function(s,i){
+      return '<li class="step-item '+(s.done?"done":"")+'"><div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><div>'+
+        '<span class="pill">'+(i+1)+'</span> '+esc(stepText(s))+
+        (s.done&&s.by?'<div style="font-size:.78rem;color:var(--ink-soft);margin-top:.25rem">Signed: '+esc(s.by)+'</div>':'')+
+        '</div>'+
+        (!s.done?'<button class="btn small primary" data-action="prod-step" data-i="'+i+'">Complete · PIN</button>':'<span class="pill pass">Done</span>')+
+        '</div></li>';
+    }).join("")+'</ul></div>',
+    "Task Order"
+  );
 }
 
 function renderRunGeneric(t){
@@ -538,6 +584,7 @@ function openTag(wo){
   const asms = state.data.assemblies || [];
   state.tagKind = wo.instructionKind || "cable";
   state.tagAssemblyId = wo.assemblyId || (asms[0] ? asms[0].id : "");
+  state.tagTaskNotes = wo.taskNotes || wo.notes || "";
 
   const dlg = document.getElementById("modal");
   function productChoices() {
@@ -553,31 +600,33 @@ function openTag(wo){
   function paint() {
     dlg.innerHTML =
       '<div class="modal-card"><h3 style="margin:0">WI type - ' + esc(wo.number) + '</h3>' +
-      '<p style="color:var(--ink-soft);font-size:.88rem;margin:.35rem 0 .75rem">Tap a type, then Save. Options stay on screen.</p>' +
+      '<p style="color:var(--ink-soft);font-size:.88rem;margin:.35rem 0 .75rem">Tap a type, then Save.</p>' +
       '<div style="font-size:.8rem;font-weight:650;color:var(--ink-soft);margin-bottom:.35rem">Instruction type</div>' +
       '<div class="choice-grid">' +
       '<button type="button" class="choice ' + (state.tagKind === "cable" ? "is-on" : "") + '" data-action="pick-kind" data-kind="cable"><b>Generic cable</b><div style="font-weight:400;font-size:.8rem;color:var(--ink-soft)">Crimp, solder, populate, labels</div></button>' +
       '<button type="button" class="choice ' + (state.tagKind === "assembly" ? "is-on" : "") + '" data-action="pick-kind" data-kind="assembly"><b>Generic assembly / POD</b><div style="font-weight:400;font-size:.8rem;color:var(--ink-soft)">Anti-seize, Loctite, torque, route</div></button>' +
       '<button type="button" class="choice ' + (state.tagKind === "product" ? "is-on" : "") + '" data-action="pick-kind" data-kind="product"><b>Product / LRU WI</b><div style="font-weight:400;font-size:.8rem;color:var(--ink-soft)">Custom product traveler</div></button>' +
+      '<button type="button" class="choice ' + (state.tagKind === "task" ? "is-on" : "") + '" data-action="pick-kind" data-kind="task"><b>Task Order</b><div style="font-weight:400;font-size:.8rem;color:var(--ink-soft)">Not BOM-bound · still tracked for capacity, assign, WIP</div></button>' +
       '</div>' +
       (state.tagKind === "product"
         ? ('<div id="ta" style="margin-top:1rem">' +
            '<div style="font-size:.8rem;font-weight:650;color:var(--ink-soft);margin-bottom:.35rem">Product / LRU instruction</div>' +
            '<div class="choice-grid">' + productChoices() + '</div></div>')
         : '') +
+      (state.tagKind === "task"
+        ? ('<div style="margin-top:1rem"><label>Task notes (optional)<textarea class="field" rows="3" data-bind-tag="taskNotes" placeholder="What needs doing, links, context…">' + esc(state.tagTaskNotes || "") + '</textarea></label>' +
+           '<p style="color:var(--ink-soft);font-size:.8rem;margin:.45rem 0 0">Hours stay on the work order. No product WI or cable ops required.</p></div>')
+        : '') +
       '<div style="display:flex;justify-content:space-between;margin-top:1rem;gap:.5rem;flex-wrap:wrap">' +
       '<button type="button" class="btn" data-action="close-modal">Cancel</button>' +
       '<button type="button" class="btn primary" data-action="save-tag">Save WI type</button></div></div>';
+    var ta = dlg.querySelector("[data-bind-tag=taskNotes]");
+    if (ta) ta.addEventListener("input", function (ev) { state.tagTaskNotes = ev.target.value; });
   }
   paint();
   dlg.showModal();
-  // keep paint helper for re-render of product highlight
-  state._tagPaint = function () {
-    // only update selection classes without full rebuild if possible - full rebuild is fine
-    paint();
-  };
+  state._tagPaint = function () { paint(); };
 }
-
 
 function openPin(purpose, payload){
   state.pendingPin={purpose:purpose, payload:payload||{}};
@@ -609,14 +658,22 @@ function applyTagSave() {
     }
     const a = asmById(wo.assemblyId);
     wo.productTag = a ? (a.productCode || a.name) : "Product";
+    wo.taskNotes = "";
   } else if (kind === "assembly") {
     wo.assemblyId = "";
     wo.productTag = "Assembly/POD";
     wo.hoursFromWi = false;
+    wo.taskNotes = "";
+  } else if (kind === "task") {
+    wo.assemblyId = "";
+    wo.productTag = "Task Order";
+    wo.hoursFromWi = false;
+    wo.taskNotes = String(state.tagTaskNotes || "").trim();
   } else {
     wo.assemblyId = "";
     wo.productTag = "Cable";
     wo.hoursFromWi = false;
+    wo.taskNotes = "";
   }
   if (kind === "product") applyWiHoursToOrder(wo);
   const idx = (state.data.workOrders || []).findIndex(function (o) { return String(o.id) === String(wo.id); });
