@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Analytics · Timecard</title>
-  <style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analytics</title>
+<style>
 :root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--card-2:#f7f1e6;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--over:#9b2c1a;--healthy:#2d6a3a;--healthy-soft:#d7ead9;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
 *{box-sizing:border-box}html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px}
 .top{position:sticky;top:0;z-index:20;background:rgba(243,239,230,.95);border-bottom:1px solid var(--rule)}
@@ -18,7 +18,7 @@
 .wrap{width:min(1100px,100%);margin:0 auto;padding:1.15rem 1.15rem 3rem}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
 .kpi{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:.85rem 1rem;box-shadow:var(--shadow)}
-.kpi .label{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.04em}
+.kpi .label{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 .kpi .value{font-size:1.55rem;font-weight:650}
 .card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow);margin-bottom:1rem}
 .person-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.85rem;margin-bottom:1rem}
@@ -27,27 +27,36 @@
 .person-card .sub{color:var(--ink-soft);font-size:.82rem;margin:0 0 .75rem}
 .cc-row{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;padding:.45rem 0;border-bottom:1px solid var(--rule)}
 .cc-row:last-child{border-bottom:0}
-.cc-code{font-weight:650;font-variant-numeric:tabular-nums}
-.cc-hrs{font-size:1.15rem;font-weight:650;font-variant-numeric:tabular-nums;color:var(--accent-ink)}
+.cc-code{font-weight:650}.cc-hrs{font-size:1.15rem;font-weight:650;color:var(--accent-ink)}
 .cc-detail{font-size:.78rem;color:var(--ink-soft);margin-top:.15rem}
 .total-line{margin-top:.65rem;padding-top:.55rem;border-top:2px solid var(--accent-ink);display:flex;justify-content:space-between;font-weight:650}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.5rem .4rem;border-bottom:1px solid var(--rule);vertical-align:top}
 th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 .pill{display:inline-flex;border-radius:999px;padding:.1rem .5rem;font-size:.72rem;font-weight:650;background:#eee}
 .pill.open{background:var(--accent-soft);color:var(--accent-ink)}
-.filters{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.score-big{font-size:2rem;font-weight:700;color:var(--accent-ink)}
+.score-row{display:flex;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid var(--rule);font-size:.9rem}
+.score-row:last-child{border-bottom:0}
 .subtabs{display:flex;gap:.35rem;margin-bottom:1rem;flex-wrap:wrap}
 .subtab{border:1px solid var(--rule);background:var(--card);border-radius:999px;padding:.4rem .85rem;cursor:pointer;font:inherit}
 .subtab.is-on{background:var(--accent-ink);color:#f6f1e7;border-color:var(--accent-ink)}
+.filters{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
 .empty{text-align:center;padding:1.5rem;color:var(--ink-soft)}
 .err{color:var(--over);padding:1rem;background:#f6d9d2;border-radius:10px}
+.btn{border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:.4rem .7rem;cursor:pointer;font:inherit}
+.btn.primary{background:var(--accent-ink);color:#f6f1e7;border-color:var(--accent-ink)}
+.btn.small{padding:.25rem .5rem;font-size:.82rem}
+.field{border:1px solid var(--rule);background:#fff;border-radius:10px;padding:.4rem .65rem;width:100%;font:inherit}
+label{display:flex;flex-direction:column;gap:.25rem;font-size:.8rem;font-weight:650;color:var(--ink-soft)}
+dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgba(27,24,20,.45)}
+.modal-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1.15rem;width:min(440px,94vw);box-shadow:var(--shadow)}
 @media(max-width:800px){.kpis{grid-template-columns:1fr 1fr}}
-  </style>
+</style>
 </head>
 <body>
 <div class="top">
   <div class="top-row">
-    <div class="brand"><div class="mark">AN</div><div><h1>Analytics</h1><p>Timecard · charge codes · capacity</p></div></div>
+    <div class="brand"><div class="mark">AN</div><div><h1>Analytics</h1><p>Timecard · scorecards · capacity</p></div></div>
     <div id="suite-auth-host"></div>
   </div>
   <nav class="tabs" id="tabs">
@@ -62,25 +71,22 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
   </nav>
 </div>
 <div class="wrap" id="main">Loading...</div>
+<dialog id="modal"></dialog>
 <script src="nav.js"></script>
+<script src="scorecard.js"></script>
 <script>
 (function () {
   var STORAGE_KEY = "capacity-tracker.v1";
   var state = { range: "week", view: "timecard" };
 
   function esc(s) {
-    var t = String(s == null ? "" : s);
-    var out = "";
-    for (var i = 0; i < t.length; i++) {
-      var c = t.charAt(i);
-      if (c === "&") out += "&" + "amp;";
-      else if (c === "<") out += "&" + "lt;";
-      else if (c === ">") out += "&" + "gt;";
-      else if (c === '"') out += "&" + "quot;";
-      else if (c === "'") out += "&" + "#39;";
-      else out += c;
-    }
-    return out;
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) {
+      if (ch === "&") return "\x26amp;";
+      if (ch === "<") return "\x26lt;";
+      if (ch === ">") return "\x26gt;";
+      if (ch === '"') return "\x26quot;";
+      return "\x26#39;";
+    });
   }
 
   function load() {
@@ -91,9 +97,28 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
     }
   }
 
+  function save(data) {
+    data.updatedAt = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
   function num(v, f) {
     var n = Number(v);
     return Number.isFinite(n) ? n : f || 0;
+  }
+
+  function session() {
+    try {
+      return JSON.parse(sessionStorage.getItem("capacity-tracker.session") || "null");
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function isManager() {
+    if (window.Scorecard && Scorecard.isManager) return Scorecard.isManager(session());
+    var r = String((session() && session().role) || "").toLowerCase();
+    return r === "manager" || r === "admin" || r === "mgr";
   }
 
   function startOfDay(d) {
@@ -160,8 +185,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
           personId: pid,
           name: e.personName || "Unknown",
           byCode: {},
-          totalMs: 0,
-          rows: []
+          totalMs: 0
         };
       }
       var p = byPerson[pid];
@@ -171,11 +195,107 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
       var jn = e.workOrderNumber || e.workOrderId || "?";
       p.byCode[cc].jobs[jn] = (p.byCode[cc].jobs[jn] || 0) + num(e.durationMs, 0);
       p.totalMs += num(e.durationMs, 0);
-      p.rows.push(e);
     });
     return Object.values(byPerson).sort(function (a, b) {
       return b.totalMs - a.totalMs;
     });
+  }
+
+  function scoreLabel(n) {
+    return n == null ? "-" : String(n);
+  }
+
+  function renderScorecards() {
+    if (!isManager()) {
+      return '<div class="card empty">Scorecards are manager / admin only.</div>';
+    }
+    var d = load();
+    var people = d.people || [];
+    if (!people.length) {
+      return '<div class="card empty">No people in roster. Add them in Settings.</div>';
+    }
+    if (!window.Scorecard) {
+      return '<div class="card empty">Missing scorecard.js - put it in the suite root folder.</div>';
+    }
+    var html = '<div class="person-grid">';
+    people.forEach(function (p) {
+      var card = Scorecard.buildPersonCard(p, d);
+      html +=
+        '<div class="person-card">' +
+        "<h3>" +
+        esc(p.name) +
+        "</h3>" +
+        '<p class="sub">' +
+        esc(p.role || "tech") +
+        "</p>" +
+        '<div class="score-big">' +
+        scoreLabel(card.overall) +
+        '</div><div class="sub" style="margin-bottom:.75rem">Overall</div>' +
+        '<div class="score-row"><span>Output</span><b>' +
+        scoreLabel(card.output.score) +
+        "</b></div>" +
+        '<div class="score-row"><span>Quality</span><b>' +
+        scoreLabel(card.quality.score) +
+        "</b></div>" +
+        '<div class="score-row"><span>Skill (certs)</span><b>' +
+        scoreLabel(card.skill.score) +
+        "</b></div>" +
+        '<div class="score-row"><span>Soft skills</span><b>' +
+        scoreLabel(card.soft.score) +
+        "</b></div>" +
+        '<div style="margin-top:.75rem"><button type="button" class="btn small primary" data-soft="' +
+        esc(p.id) +
+        '">Rate soft skills</button></div></div>';
+    });
+    html += "</div>";
+    html +=
+      '<p class="empty" style="text-align:left;padding:0">Output = pace vs planned hours x complexity. Quality = QA pass rate on their builds. Skill = J-STD / 610 / 620 certs. Soft = manager ratings.</p>';
+    return html;
+  }
+
+  function openSoftReview(personId) {
+    var d = load();
+    var person = (d.people || []).find(function (p) {
+      return String(p.id) === String(personId);
+    });
+    if (!person) return;
+    var keys =
+      (window.Scorecard && Scorecard.SOFT_KEYS) ||
+      [
+        { key: "initiative", label: "Initiative" },
+        { key: "criticalThinking", label: "Critical thinking" },
+        { key: "communication", label: "Communication & accountability" },
+        { key: "leadership", label: "Leadership" }
+      ];
+    var dlg = document.getElementById("modal");
+    var fields = keys
+      .map(function (k) {
+        return (
+          "<label>" +
+          esc(k.label) +
+          ' (1-5)<input class="field" type="number" min="1" max="5" name="' +
+          esc(k.key) +
+          '" value="3" required></label>'
+        );
+      })
+      .join("");
+    dlg.innerHTML =
+      '<form class="modal-card" data-form="soft">' +
+      "<h3 style=\"margin:0\">Soft skills - " +
+      esc(person.name) +
+      "</h3>" +
+      '<p style="color:var(--ink-soft);font-size:.88rem">Rate 1 (needs work) to 5 (excellent).</p>' +
+      fields +
+      '<input type="hidden" name="personId" value="' +
+      esc(personId) +
+      '">' +
+      '<div style="display:flex;justify-content:space-between;margin-top:1rem;gap:.5rem">' +
+      '<button type="button" class="btn" data-close>Cancel</button>' +
+      '<button type="submit" class="btn primary">Save rating</button></div></form>';
+    if (dlg.showModal) dlg.showModal();
+    dlg.querySelector("[data-close]").onclick = function () {
+      dlg.close();
+    };
   }
 
   function render() {
@@ -202,19 +322,29 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
       }).length;
 
       var html =
-        '<div style="margin-bottom:1rem"><h2 style="margin:0">Timecard · charge codes</h2>' +
-        '<p style="margin:.25rem 0 0;color:var(--ink-soft);font-size:.9rem">Check in then Exit logs minutes by charge code.</p></div>';
-
-      html +=
         '<div class="subtabs">' +
         '<button type="button" class="subtab ' +
         (state.view === "timecard" ? "is-on" : "") +
         '" data-view="timecard">Timecard</button>' +
         '<button type="button" class="subtab ' +
         (state.view === "capacity" ? "is-on" : "") +
-        '" data-view="capacity">Capacity snapshot</button></div>';
+        '" data-view="capacity">Capacity</button>';
 
-      if (state.view === "timecard") {
+      if (isManager()) {
+        html +=
+          '<button type="button" class="subtab ' +
+          (state.view === "scorecards" ? "is-on" : "") +
+          '" data-view="scorecards">Scorecards</button>';
+      }
+      html += "</div>";
+
+      if (state.view === "scorecards") {
+        html += "<h2 style=\"margin:0 0 .5rem\">Tech scorecards</h2>";
+        html +=
+          '<p style="color:var(--ink-soft);margin:0 0 1rem;font-size:.9rem">Manager view only. Overall blends Output 30%, Quality 30%, Skill 20%, Soft 20%.</p>';
+        html += renderScorecards();
+      } else if (state.view === "timecard") {
+        html += "<h2 style=\"margin:0 0 .35rem\">Timecard · charge codes</h2>";
         html += '<div class="filters">';
         ["today", "week", "lastweek", "all"].forEach(function (r) {
           var labels = {
@@ -250,7 +380,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
           '<div class="kpi"><div class="label">People</div><div class="value">' +
           people.length +
           "</div></div>" +
-          '<div class="kpi"><div class="label">Open WOs missing charge code</div><div class="value">' +
+          '<div class="kpi"><div class="label">Missing charge code</div><div class="value">' +
           missingCc +
           "</div></div></div>";
 
@@ -280,9 +410,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
                   jobs +
                   '</div></div><div class="cc-hrs">' +
                   formatHours(row.ms) +
-                  ' <span style="font-size:.75rem;font-weight:500;color:var(--ink-soft)">(' +
-                  formatHoursDec(row.ms) +
-                  "h)</span></div></div>";
+                  "</div></div>";
               });
             html +=
               '<div class="total-line"><span>Total</span><span>' +
@@ -319,8 +447,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
           "</div></div></div>";
 
         html +=
-          '<div class="card"><h3 style="margin:0 0 .75rem">Load by work center</h3>' +
-          "<table><thead><tr><th>Work center</th><th>Open jobs</th><th>Hours rem</th></tr></thead><tbody>";
+          '<div class="card"><h3 style="margin:0 0 .75rem">Load by work center</h3><table><thead><tr><th>Work center</th><th>Open jobs</th><th>Hours rem</th></tr></thead><tbody>';
         html +=
           Object.values(byCenter)
             .sort(function (a, b) {
@@ -361,7 +488,37 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
     if (v) {
       state.view = v.getAttribute("data-view");
       render();
+      return;
     }
+    var soft = e.target.closest("[data-soft]");
+    if (soft) {
+      openSoftReview(soft.getAttribute("data-soft"));
+    }
+  });
+
+  document.addEventListener("submit", function (e) {
+    var form = e.target.closest("[data-form=soft]");
+    if (!form) return;
+    e.preventDefault();
+    var fd = new FormData(form);
+    var d = load();
+    if (!Array.isArray(d.softSkillReviews)) d.softSkillReviews = [];
+    var s = session();
+    d.softSkillReviews.unshift({
+      id: "ss_" + Math.random().toString(36).slice(2, 9),
+      personId: String(fd.get("personId") || ""),
+      initiative: num(fd.get("initiative"), 3),
+      criticalThinking: num(fd.get("criticalThinking"), 3),
+      communication: num(fd.get("communication"), 3),
+      leadership: num(fd.get("leadership"), 3),
+      by: (s && s.name) || "",
+      byId: (s && (s.personId || s.userId)) || "",
+      at: new Date().toISOString()
+    });
+    save(d);
+    var dlg = document.getElementById("modal");
+    if (dlg && dlg.close) dlg.close();
+    render();
   });
 
   if (window.SuiteNav && SuiteNav.requireAuth) {
