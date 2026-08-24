@@ -50,6 +50,6 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
 <div class="toasts" id="toasts"></div>
 <dialog id="modal"></dialog>
 <script src="nav.js"></script>
-<script src="Settings.app.js"></script>
+<script src="Settings.app.js" onerror="document.getElementById('main').innerHTML='<div class=err><b>Could not load Settings.app.js</b><br>1. Put Settings.app.js in the same folder as Settings.html (not inside js/).<br>2. Do not double-click the HTML file. Run Start-CapacityTracker.bat and open http://127.0.0.1:8765/Settings.html</div>'"></script>
 </body>
 </html>
