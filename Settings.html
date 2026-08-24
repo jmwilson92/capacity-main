@@ -35,6 +35,7 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
 .help{font-size:.82rem;color:var(--ink-soft);line-height:1.4}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem}
 .grid a{text-decoration:none;color:inherit}
+.err{color:var(--over);padding:1rem;background:#f6d9d2;border-radius:10px}
 </style>
 </head>
 <body>
@@ -45,151 +46,331 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
   </div>
   <div class="tabs" id="tabs"></div>
 </div>
-<div class="wrap" id="main">Loading…</div>
+<div class="wrap" id="main">Loading...</div>
 <div class="toasts" id="toasts"></div>
 <dialog id="modal"></dialog>
 <script src="roles.js"></script>
 <script src="nav.js"></script>
 <script>
-(function(){
-var STORAGE_KEY="capacity-tracker.v1";
-var COLORS=["#1f6f6a","#1d4e89","#8a3b12","#6b4c9a","#3d5a40","#9a3412","#0f4c5c","#7a2f4b"];
-function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(ch){if(ch==="&")return"\x26amp;";if(ch==="<")return"\x26lt;";if(ch===">")return"\x26gt;";if(ch==="\"")return"\x26quot;";return"\x26#39;";});}
-function uid(p){return p+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);}
-function toast(m){var el=document.createElement("div");el.className="toast";el.textContent=m;document.getElementById("toasts").appendChild(el);setTimeout(function(){el.remove();},2800);}
-function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(e){return {};}}
-function save(data){data.updatedAt=Date.now();localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
-function roleLabel(r){return window.SuiteRoles?SuiteRoles.label(r):(r||"tech");}
-function roleOpts(sel){return window.SuiteRoles?SuiteRoles.optionsHtml(sel):'<option value="tech">Floor Tech</option>';}
-function isAdmin(){var s=window.SuiteRoles&&SuiteRoles.session();return !s||SuiteRoles.can("manageSettings",s)||SuiteRoles.roleOf(s)==="admin";}
+(function () {
+  var STORAGE_KEY = "capacity-tracker.v1";
+  var COLORS = ["#1f6f6a", "#1d4e89", "#8a3b12", "#6b4c9a", "#3d5a40", "#9a3412", "#0f4c5c", "#7a2f4b"];
 
-function render(){
-  document.getElementById("tabs").innerHTML=(window.SuiteNav&&SuiteNav.html("Settings"))||"";
-  if(window.SuiteNav)SuiteNav.paintAuth();
-  var d=load();
-  var centers=d.workCenters||[];
-  var people=(d.people||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
-  var html="";
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) {
+      if (ch === "&") return "&" + "amp;";
+      if (ch === "<") return "&" + "lt;";
+      if (ch === ">") return "&" + "gt;";
+      if (ch === '"') return "&" + "quot;";
+      return "&#39;";
+    });
+  }
 
-  html+='<div class="card help"><b>Roles</b><br>Floor Tech — only assigned jobs; tech step sign-off; downtime create; analytics view.<br>QA — only assigned jobs; QA step sign-off; downtime create; analytics view.<br>Mfg Eng — edit work instructions; resolve downtime; set WI type.<br>Supervisor — assign work; create task orders; analytics.<br>Manager — create work orders; charge codes; assign; downtime view.<br>Admin — everything.</div>';
+  function uid(p) {
+    return p + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
+  }
 
-  html+='<div class="page-head"><div><h2>Work centers</h2><p class="lede">Ordering, Kitting, QA, production cells.</p></div>';
-  html+='<button type="button" class="btn primary" data-action="new-wc">New work center</button></div>';
-  if(!centers.length)html+='<div class="card"><p class="help" style="margin:0">No work centers yet.</p></div>';
-  else centers.forEach(function(c){
-    html+='<div class="wc-row"><div><span class="dot" style="background:'+esc(c.color||"#1f6f6a")+'"></span><b>'+esc(c.name)+'</b>';
-    if(c.kind)html+=' <span class="pill">'+esc(c.kind)+'</span>';
-    html+='</div><div><button type="button" class="btn small" data-action="edit-wc" data-id="'+esc(c.id)+'">Edit</button> ';
-    html+='<button type="button" class="btn small danger" data-action="del-wc" data-id="'+esc(c.id)+'">Delete</button></div></div>';
+  function toast(m) {
+    var el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = m;
+    document.getElementById("toasts").appendChild(el);
+    setTimeout(function () { el.remove(); }, 2800);
+  }
+
+  function load() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function save(data) {
+    data.updatedAt = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function roleLabel(r) {
+    return window.SuiteRoles ? SuiteRoles.label(r) : (r || "tech");
+  }
+
+  function roleOpts(sel) {
+    return window.SuiteRoles
+      ? SuiteRoles.optionsHtml(sel)
+      : '<option value="tech">Floor Tech</option>';
+  }
+
+  function render() {
+    try {
+      document.getElementById("tabs").innerHTML =
+        (window.SuiteNav && SuiteNav.html("Settings")) || "";
+      if (window.SuiteNav) SuiteNav.paintAuth();
+
+      var d = load();
+      var centers = d.workCenters || [];
+      var people = (d.people || []).slice().sort(function (a, b) {
+        return String(a.name).localeCompare(String(b.name));
+      });
+      var html = "";
+
+      html += '<div class="card help"><b>Roles</b><br>';
+      html += "Floor Tech - only assigned jobs; tech step sign-off; downtime create; analytics view.<br>";
+      html += "QA - only assigned jobs; QA step sign-off; downtime create; analytics view.<br>";
+      html += "Mfg Eng - edit work instructions; resolve downtime; set WI type.<br>";
+      html += "Supervisor - assign work; create task orders; analytics.<br>";
+      html += "Manager - create work orders; charge codes; assign; downtime view.<br>";
+      html += "Admin - everything.</div>";
+
+      html += '<div class="page-head"><div><h2>Work centers</h2>';
+      html += '<p class="lede">Ordering, Kitting, QA, production cells.</p></div>';
+      html += '<button type="button" class="btn primary" data-action="new-wc">New work center</button></div>';
+
+      if (!centers.length) {
+        html += '<div class="card"><p class="help" style="margin:0">No work centers yet.</p></div>';
+      } else {
+        centers.forEach(function (c) {
+          html += '<div class="wc-row"><div><span class="dot" style="background:' +
+            esc(c.color || "#1f6f6a") + '"></span><b>' + esc(c.name) + "</b>";
+          if (c.kind) html += ' <span class="pill">' + esc(c.kind) + "</span>";
+          html += '</div><div><button type="button" class="btn small" data-action="edit-wc" data-id="' +
+            esc(c.id) + '">Edit</button> ';
+          html += '<button type="button" class="btn small danger" data-action="del-wc" data-id="' +
+            esc(c.id) + '">Delete</button></div></div>';
+        });
+      }
+
+      html += '<div class="page-head" style="margin-top:1.75rem"><div><h2>Employees & roles</h2>';
+      html += '<p class="lede">Assign Floor Tech, QA, Mfg Eng, Supervisor, Manager, or Admin. PIN default 1111.</p></div>';
+      html += '<button type="button" class="btn primary" data-action="new-emp">Add employee</button></div>';
+
+      if (!people.length) {
+        html += '<div class="card"><p class="help" style="margin:0">No people yet. Add employees here or in Capacity Tracker roster.</p></div>';
+      } else {
+        people.forEach(function (p) {
+          html += '<div class="emp-row"><div><b>' + esc(p.name) + '</b> <span class="pill">' +
+            esc(roleLabel(p.role)) + "</span>";
+          if (p.workCenterId) {
+            var wc = centers.find(function (c) {
+              return String(c.id) === String(p.workCenterId);
+            });
+            html += ' <span class="help">' + esc(wc ? wc.name : "") + "</span>";
+          }
+          html += '</div><div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">';
+          html += '<select class="field" style="width:auto;min-width:9rem" data-role-id="' +
+            esc(p.id) + '">' + roleOpts(p.role || "tech") + "</select>";
+          html += '<button type="button" class="btn small" data-action="reset-pin" data-id="' +
+            esc(p.id) + '">Reset PIN 1111</button>';
+          html += '<button type="button" class="btn small danger" data-action="del-emp" data-id="' +
+            esc(p.id) + '">Remove</button></div></div>';
+        });
+      }
+
+      html += '<h2 style="margin-top:1.75rem">More</h2><div class="grid" style="margin-top:.75rem">';
+      html += '<a class="card" href="CapacityTracker.html#people"><h3 style="margin:0 0 .35rem">Full roster</h3>';
+      html += '<p class="help" style="margin:0">Hours, PTO, center assign in Capacity Tracker.</p></a>';
+      html += '<a class="card" href="SkillsMatrix.html"><h3 style="margin:0 0 .35rem">Skills matrix</h3>';
+      html += '<p class="help" style="margin:0">Training levels.</p></a>';
+      html += '<a class="card" href="CapacityTracker.html#settings"><h3 style="margin:0 0 .35rem">Capacity settings</h3>';
+      html += '<p class="help" style="margin:0">Planning horizon, storage.</p></a></div>';
+
+      document.getElementById("main").innerHTML = html;
+    } catch (err) {
+      document.getElementById("main").innerHTML =
+        '<div class="err">Settings error: ' + esc(err && err.message ? err.message : String(err)) + "</div>";
+    }
+  }
+
+  function openWc(id) {
+    var d = load();
+    var centers = d.workCenters || [];
+    var existing = id
+      ? centers.find(function (c) {
+          return String(c.id) === String(id);
+        })
+      : null;
+    var c = existing || {
+      name: "",
+      notes: "",
+      color: COLORS[centers.length % COLORS.length],
+      kind: ""
+    };
+    var dlg = document.getElementById("modal");
+    dlg.innerHTML =
+      '<form class="modal-card" data-form="wc" data-id="' +
+      esc(existing ? existing.id : "") +
+      '"><h3 style="margin:0">' +
+      (existing ? "Edit" : "New") +
+      ' work center</h3><div class="form-grid">' +
+      '<label class="span-2">Name<input class="field" name="name" required value="' +
+      esc(c.name) +
+      '"></label>' +
+      '<label>Kind<select class="field" name="kind">' +
+      '<option value="">General</option>' +
+      '<option value="ordering"' +
+      (c.kind === "ordering" ? " selected" : "") +
+      ">Ordering</option>' +
+      '<option value="kitting"' +
+      (c.kind === "kitting" ? " selected" : "") +
+      ">Kitting</option>' +
+      '<option value="qa"' +
+      (c.kind === "qa" ? " selected" : "") +
+      ">QA</option></select></label>' +
+      '<label>Color<input class="field" type="color" name="color" value="' +
+      esc(c.color || "#1f6f6a") +
+      '"></label>' +
+      '<label class="span-2">Notes<textarea class="field" name="notes" rows="2">' +
+      esc(c.notes || "") +
+      "</textarea></label></div>" +
+      '<div style="display:flex;justify-content:space-between;margin-top:.5rem">' +
+      '<button type="button" class="btn" data-action="close">Cancel</button>' +
+      '<button type="submit" class="btn primary">Save</button></div></form>';
+    dlg.showModal();
+  }
+
+  function openEmp() {
+    var d = load();
+    var centers = d.workCenters || [];
+    var dlg = document.getElementById("modal");
+    dlg.innerHTML =
+      '<form class="modal-card" data-form="emp"><h3 style="margin:0">Add employee</h3><div class="form-grid">' +
+      '<label class="span-2">Name<input class="field" name="name" required></label>' +
+      '<label>Role<select class="field" name="role">' +
+      roleOpts("tech") +
+      "</select></label>" +
+      '<label>Work center<select class="field" name="workCenterId"><option value="">Unassigned</option>' +
+      centers
+        .map(function (c) {
+          return '<option value="' + c.id + '">' + esc(c.name) + "</option>";
+        })
+        .join("") +
+      "</select></label>" +
+      '<label class="span-2">Hours / week<input class="field" name="hoursPerWeek" type="number" value="40" min="0" step="0.5"></label></div>' +
+      '<p class="help">PIN starts at 1111. They change it on first Work Orders login.</p>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:.5rem">' +
+      '<button type="button" class="btn" data-action="close">Cancel</button>' +
+      '<button type="submit" class="btn primary">Save</button></div></form>';
+    dlg.showModal();
+  }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-action]");
+    if (!b) return;
+    var a = b.getAttribute("data-action");
+    if (a === "new-wc") openWc("");
+    if (a === "edit-wc") openWc(b.getAttribute("data-id"));
+    if (a === "new-emp") openEmp();
+    if (a === "close") {
+      var m = document.getElementById("modal");
+      if (m) m.close();
+    }
+    if (a === "del-wc") {
+      if (!confirm("Delete this work center?")) return;
+      var id = b.getAttribute("data-id");
+      var d = load();
+      d.workCenters = (d.workCenters || []).filter(function (c) {
+        return String(c.id) !== String(id);
+      });
+      (d.people || []).forEach(function (p) {
+        if (String(p.workCenterId) === String(id)) p.workCenterId = "";
+      });
+      (d.workOrders || []).forEach(function (o) {
+        if (String(o.workCenterId) === String(id)) o.workCenterId = "";
+      });
+      save(d);
+      toast("Deleted");
+      render();
+    }
+    if (a === "del-emp") {
+      if (!confirm("Remove employee?")) return;
+      var id2 = b.getAttribute("data-id");
+      var d2 = load();
+      d2.people = (d2.people || []).filter(function (p) {
+        return String(p.id) !== String(id2);
+      });
+      save(d2);
+      toast("Removed");
+      render();
+    }
+    if (a === "reset-pin") {
+      var id3 = b.getAttribute("data-id");
+      var d3 = load();
+      var p = (d3.people || []).find(function (x) {
+        return String(x.id) === String(id3);
+      });
+      if (!p) return;
+      p.pin = "1111";
+      p.mustChangePin = true;
+      save(d3);
+      toast(p.name + " PIN reset to 1111");
+    }
   });
 
-  html+='<div class="page-head" style="margin-top:1.75rem"><div><h2>Employees & roles</h2><p class="lede">Assign Floor Tech, QA, Mfg Eng, Supervisor, Manager, or Admin. PIN default 1111.</p></div>';
-  html+='<button type="button" class="btn primary" data-action="new-emp">Add employee</button></div>';
-  if(!people.length)html+='<div class="card"><p class="help" style="margin:0">No people yet. Add employees here or in Capacity Tracker roster.</p></div>';
-  else people.forEach(function(p){
-    html+='<div class="emp-row"><div><b>'+esc(p.name)+'</b> <span class="pill">'+esc(roleLabel(p.role))+'</span>';
-    if(p.workCenterId){var wc=centers.find(function(c){return String(c.id)===String(p.workCenterId);});html+=' <span class="help">'+esc(wc?wc.name:"")+'</span>';}
-    html+='</div><div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">';
-    html+='<select class="field" style="width:auto;min-width:9rem" data-role-id="'+esc(p.id)+'">'+roleOpts(p.role||"tech")+'</select>';
-    html+='<button type="button" class="btn small" data-action="reset-pin" data-id="'+esc(p.id)+'">Reset PIN 1111</button>';
-    html+='<button type="button" class="btn small danger" data-action="del-emp" data-id="'+esc(p.id)+'">Remove</button></div></div>';
+  document.addEventListener("change", function (e) {
+    var sel = e.target.closest("[data-role-id]");
+    if (!sel) return;
+    var id = sel.getAttribute("data-role-id");
+    var d = load();
+    var p = (d.people || []).find(function (x) {
+      return String(x.id) === String(id);
+    });
+    if (!p) return;
+    p.role = window.SuiteRoles ? SuiteRoles.norm(sel.value) : sel.value;
+    save(d);
+    toast(p.name + " -> " + roleLabel(p.role));
   });
 
-  html+='<h2 style="margin-top:1.75rem">More</h2><div class="grid" style="margin-top:.75rem">';
-  html+='<a class="card" href="CapacityTracker.html#people"><h3 style="margin:0 0 .35rem">Full roster</h3><p class="help" style="margin:0">Hours, PTO, center assign in Capacity Tracker.</p></a>';
-  html+='<a class="card" href="SkillsMatrix.html"><h3 style="margin:0 0 .35rem">Skills matrix</h3><p class="help" style="margin:0">Training levels.</p></a>';
-  html+='<a class="card" href="CapacityTracker.html#settings"><h3 style="margin:0 0 .35rem">Capacity settings</h3><p class="help" style="margin:0">Planning horizon, storage.</p></a></div>';
+  document.addEventListener("submit", function (e) {
+    var form = e.target.closest("[data-form]");
+    if (!form) return;
+    e.preventDefault();
+    var fd = new FormData(form);
+    var d = load();
+    if (form.getAttribute("data-form") === "wc") {
+      if (!d.workCenters) d.workCenters = [];
+      var id = form.getAttribute("data-id") || "";
+      var rec = {
+        id: id || uid("wc"),
+        name: String(fd.get("name") || "").trim() || "Untitled",
+        kind: String(fd.get("kind") || ""),
+        color: String(fd.get("color") || "#1f6f6a"),
+        notes: String(fd.get("notes") || "")
+      };
+      var idx = d.workCenters.findIndex(function (c) {
+        return String(c.id) === String(rec.id);
+      });
+      if (idx >= 0) d.workCenters[idx] = Object.assign({}, d.workCenters[idx], rec);
+      else d.workCenters.push(rec);
+      save(d);
+      document.getElementById("modal").close();
+      toast("Work center saved");
+      render();
+    }
+    if (form.getAttribute("data-form") === "emp") {
+      if (!d.people) d.people = [];
+      var role = window.SuiteRoles
+        ? SuiteRoles.norm(fd.get("role"))
+        : String(fd.get("role") || "tech");
+      d.people.push({
+        id: uid("p"),
+        name: String(fd.get("name") || "").trim() || "Unnamed",
+        role: role,
+        workCenterId: String(fd.get("workCenterId") || ""),
+        hoursPerWeek: Number(fd.get("hoursPerWeek")) || 40,
+        workDays: 5,
+        efficiency: 100,
+        pin: "1111",
+        mustChangePin: true,
+        notes: ""
+      });
+      save(d);
+      document.getElementById("modal").close();
+      toast("Employee added · PIN 1111");
+      render();
+    }
+  });
 
-  document.getElementById("main").innerHTML=html;
-}
-
-function openWc(id){
-  var d=load();var centers=d.workCenters||[];
-  var existing=id?centers.find(function(c){return String(c.id)===String(id);}):null;
-  var c=existing||{name:"",notes:"",color:COLORS[centers.length%COLORS.length],kind:""};
-  var dlg=document.getElementById("modal");
-  dlg.innerHTML='<form class="modal-card" data-form="wc" data-id="'+esc(existing?existing.id:"")+'"><h3 style="margin:0">'+(existing?"Edit":"New")+' work center</h3><div class="form-grid">'+
-    '<label class="span-2">Name<input class="field" name="name" required value="'+esc(c.name)+'"></label>'+
-    '<label>Kind<select class="field" name="kind"><option value="">General</option><option value="ordering"'+(c.kind==="ordering"?" selected":"")+'>Ordering</option><option value="kitting"'+(c.kind==="kitting"?" selected":"")+'>Kitting</option><option value="qa"'+(c.kind==="qa"?" selected":"")+'>QA</option></select></label>'+
-    '<label>Color<input class="field" type="color" name="color" value="'+esc(c.color||"#1f6f6a")+'"></label>'+
-    '<label class="span-2">Notes<textarea class="field" name="notes" rows="2">'+esc(c.notes||"")+'</textarea></label></div>'+
-    '<div style="display:flex;justify-content:space-between;margin-top:.5rem"><button type="button" class="btn" data-action="close">Cancel</button><button type="submit" class="btn primary">Save</button></div></form>';
-  dlg.showModal();
-}
-function openEmp(){
-  var d=load();var centers=d.workCenters||[];
-  var dlg=document.getElementById("modal");
-  dlg.innerHTML='<form class="modal-card" data-form="emp"><h3 style="margin:0">Add employee</h3><div class="form-grid">'+
-    '<label class="span-2">Name<input class="field" name="name" required></label>'+
-    '<label>Role<select class="field" name="role">'+roleOpts("tech")+'</select></label>'+
-    '<label>Work center<select class="field" name="workCenterId"><option value="">Unassigned</option>'+centers.map(function(c){return'<option value="'+c.id+'">'+esc(c.name)+'</option>';}).join("")+'</select></label>'+
-    '<label class="span-2">Hours / week<input class="field" name="hoursPerWeek" type="number" value="40" min="0" step="0.5"></label></div>'+
-    '<p class="help">PIN starts at 1111. They change it on first Work Orders login.</p>'+
-    '<div style="display:flex;justify-content:space-between;margin-top:.5rem"><button type="button" class="btn" data-action="close">Cancel</button><button type="submit" class="btn primary">Save</button></div></form>';
-  dlg.showModal();
-}
-
-document.addEventListener("click",function(e){
-  var b=e.target.closest("[data-action]");if(!b)return;
-  var a=b.getAttribute("data-action");
-  if(a==="new-wc")openWc("");
-  if(a==="edit-wc")openWc(b.getAttribute("data-id"));
-  if(a==="new-emp")openEmp();
-  if(a==="close"){var m=document.getElementById("modal");if(m)m.close();}
-  if(a==="del-wc"){
-    if(!confirm("Delete this work center?"))return;
-    var id=b.getAttribute("data-id");var d=load();
-    d.workCenters=(d.workCenters||[]).filter(function(c){return String(c.id)!==String(id);});
-    (d.people||[]).forEach(function(p){if(String(p.workCenterId)===String(id))p.workCenterId="";});
-    (d.workOrders||[]).forEach(function(o){if(String(o.workCenterId)===String(id))o.workCenterId="";});
-    save(d);toast("Deleted");render();
-  }
-  if(a==="del-emp"){
-    if(!confirm("Remove employee?"))return;
-    var id=b.getAttribute("data-id");var d=load();
-    d.people=(d.people||[]).filter(function(p){return String(p.id)!==String(id);});
-    save(d);toast("Removed");render();
-  }
-  if(a==="reset-pin"){
-    var id=b.getAttribute("data-id");var d=load();
-    var p=(d.people||[]).find(function(x){return String(x.id)===String(id);});
-    if(!p)return;p.pin="1111";p.mustChangePin=true;save(d);toast(p.name+" PIN reset to 1111");
-  }
-});
-
-document.addEventListener("change",function(e){
-  var sel=e.target.closest("[data-role-id]");
-  if(!sel)return;
-  var id=sel.getAttribute("data-role-id");
-  var d=load();
-  var p=(d.people||[]).find(function(x){return String(x.id)===String(id);});
-  if(!p)return;
-  p.role=window.SuiteRoles?SuiteRoles.norm(sel.value):sel.value;
-  save(d);toast(p.name+" → "+roleLabel(p.role));
-});
-
-document.addEventListener("submit",function(e){
-  var form=e.target.closest("[data-form]");if(!form)return;
-  e.preventDefault();
-  var fd=new FormData(form);
-  var d=load();
-  if(form.getAttribute("data-form")==="wc"){
-    if(!d.workCenters)d.workCenters=[];
-    var id=form.getAttribute("data-id")||"";
-    var rec={id:id||uid("wc"),name:String(fd.get("name")||"").trim()||"Untitled",kind:String(fd.get("kind")||""),color:String(fd.get("color")||"#1f6f6a"),notes:String(fd.get("notes")||"")};
-    var idx=d.workCenters.findIndex(function(c){return String(c.id)===String(rec.id);});
-    if(idx>=0)d.workCenters[idx]=Object.assign({},d.workCenters[idx],rec);else d.workCenters.push(rec);
-    save(d);document.getElementById("modal").close();toast("Work center saved");render();
-  }
-  if(form.getAttribute("data-form")==="emp"){
-    if(!d.people)d.people=[];
-    var role=window.SuiteRoles?SuiteRoles.norm(fd.get("role")):String(fd.get("role")||"tech");
-    d.people.push({id:uid("p"),name:String(fd.get("name")||"").trim()||"Unnamed",role:role,workCenterId:String(fd.get("workCenterId")||""),hoursPerWeek:Number(fd.get("hoursPerWeek"))||40,workDays:5,efficiency:100,pin:"1111",mustChangePin:true,notes:""});
-    save(d);document.getElementById("modal").close();toast("Employee added · PIN 1111");render();
-  }
-});
-
-render();
+  render();
 })();
 </script>
 </body>
