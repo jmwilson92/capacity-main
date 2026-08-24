@@ -1,0 +1,17 @@
+Replace any top nav that is missing Downtime with this block:
+
+<a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>
+<a class="tab" href="CapacityTracker.html#planning">Planning</a>
+<a class="tab" href="WorkOrders.html">Work Orders</a>
+<a class="tab" href="WipBoard.html">WIP Board</a>
+<a class="tab" href="WorkInstructions.html">Work Instructions</a>
+<a class="tab" href="DowntimeLogger.html">Downtime</a>
+<a class="tab" href="Analytics.html">Analytics</a>
+<a class="tab" href="Settings.html">Settings</a>
+
+Mark the current page with class="tab is-on".
+
+Also put this on every page (root folder, not js/):
+<script src="nav.js"></script>
+
+nav.js will re-inject Downtime if a page rebuilds tabs without it.
