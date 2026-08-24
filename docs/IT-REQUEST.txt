@@ -1,0 +1,30 @@
+IT request — Capacity Tracker on the Production site
+====================================================
+
+Site:
+  https://fuseintegration.sharepoint.us/sites/Production
+
+What we need
+------------
+A custom web app on a modern SharePoint page, talking to four
+SharePoint lists on the same site, so the shop floor shares one
+capacity board (work centers, employees, PTO, work orders).
+
+Option A — preferred (modern SharePoint)
+----------------------------------------
+1. Confirm this site can use the tenant App Catalog.
+2. We will provide a SharePoint Framework (.sppkg) package.
+3. Upload it to the App Catalog and make it available to
+   the Production site.
+4. We add the web part to a page on Production.
+
+Option B — allow custom script on this site only
+------------------------------------------------
+Allow custom script / custom pages on Production so an
+.aspx page in Site Assets can run.
+
+Also needed — four lists:
+  CT Work Centers
+  CT People
+  CT Work Orders
+  CT Time Off

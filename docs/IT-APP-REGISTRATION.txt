@@ -1,0 +1,29 @@
+IT: App registration so the HTML Capacity Tracker can use SharePoint lists
+==========================================================================
+
+Site (data stays here):
+  https://fuseintegration.sharepoint.us/sites/Production
+
+Create the app (Azure Government portal)
+----------------------------------------
+1. Open https://portal.azure.us
+2. Azure Active Directory → App registrations → New registration
+3. Name: Capacity Tracker
+4. Supported account types: this directory only
+5. Redirect URI: leave blank
+6. Register
+
+Then:
+7. Authentication → Allow public client flows = Yes → Save
+8. API permissions → Add a permission → Microsoft Graph → Delegated:
+     Sites.ReadWrite.All
+     User.Read
+   Grant admin consent
+9. Copy Application (client) ID
+10. Copy Directory (tenant) ID
+
+Lists on Production:
+  CT Work Centers
+  CT People
+  CT Work Orders
+  CT Time Off

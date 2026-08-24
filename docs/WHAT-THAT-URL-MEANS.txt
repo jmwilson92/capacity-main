@@ -1,0 +1,15 @@
+What your folder URL means
+==========================
+
+Decoded folder path:
+
+  /sites/Production/Shared Documents/capacity-main
+
+File address:
+
+  https://fuseintegration.sharepoint.us/sites/Production/Shared%20Documents/capacity-main/index.aspx
+
+SharePoint on this site will not RUN .aspx or .html as a webpage.
+It will only download them. Embed then shows blank.
+
+This is an IT lock on sharepoint.us — not a bad folder name.

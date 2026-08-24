@@ -1,0 +1,83 @@
+Create the shared lists in the browser (no PowerShell)
+======================================================
+
+Do this on:
+  https://fuseintegration.sharepoint.us/sites/Production
+
+You need permission to create lists (often Owner).
+
+
+LIST 1 — CT Work Centers
+------------------------
+Gear → Site contents → New → List → Blank list
+Name: CT Work Centers
+Add these columns (List settings → Create column):
+
+  Notes     Multiple lines of text
+  Color     Single line of text
+
+
+LIST 2 — CT People
+------------------
+New → List → Blank list
+Name: CT People
+The Title column is the employee name. Rename Title to Name
+(List settings → click Title → change name).
+
+Add columns:
+
+  Work Center      Lookup  → get information from CT Work Centers
+                   In this column: Title
+  Hours / week     Number
+  Work days / week Number     (default 5)
+  Works weekends   Yes/No
+  Efficiency %     Number     (default 100)
+  Notes            Multiple lines of text
+
+
+LIST 3 — CT Work Orders
+-----------------------
+New → List → Blank list
+Name: CT Work Orders
+Rename Title to WO Number.
+
+Add columns:
+
+  Job name         Single line of text
+  Work Center      Lookup  → CT Work Centers → Title
+  Hours            Number
+  Hours remaining  Number
+  Due date         Date and time, Date only
+  Status           Choice: queued, in-progress, on-hold, complete
+  Priority         Choice: high, medium, low
+  Notes            Multiple lines of text
+
+
+LIST 4 — CT Time Off
+--------------------
+New → List → Blank list
+Name: CT Time Off
+Title can stay Title (or hide it later).
+
+Add columns:
+
+  Employee           Lookup  → CT People → Title (the name)
+  Type               Choice: pto, sick, other
+  Start              Date only
+  End                Date only
+  Hours              Number   (blank = full days)
+  Include weekends   Yes/No
+  Notes              Multiple lines of text
+
+
+PUT THEM ON ONE PAGE
+--------------------
+1. New → Page → Blank.
+2. Click Add a title. Type: Capacity.
+3. Click + → List.
+4. Choose CT Work Centers.
+5. Click + under that → List → CT People.
+6. Repeat for CT Work Orders and CT Time Off.
+7. Publish.
+
+Everyone who can edit those lists now shares the same data.

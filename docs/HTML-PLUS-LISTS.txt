@@ -1,0 +1,29 @@
+HTML screen + SharePoint lists (same data for everyone)
+=======================================================
+
+You use the HTML page. The lists on Production hold the data.
+Nobody needs to work in the list screens day to day.
+
+
+1. IT creates the app registration
+   See IT-APP-REGISTRATION.txt
+   You get a Client ID and Tenant ID.
+
+2. Create the four lists on Production
+   Run New-CapacityLists.ps1 as a site owner
+   or follow CREATE-LISTS-IN-THE-BROWSER.txt
+
+3. Download a fresh ZIP from GitHub and unzip it
+
+4. Open the app the right way
+   Double-click Start-CapacityTracker.bat
+
+5. Settings
+   Store data in: SharePoint lists
+   Site URL: https://fuseintegration.sharepoint.us/sites/Production
+   Paste Client ID and Tenant ID
+   Save storage
+
+6. Click Sign in to SharePoint
+
+7. Use the HTML app as usual
