@@ -154,7 +154,7 @@ tbody tr:hover td { background: rgba(31,111,106,0.04); }
       .sort((a, b) => String(a.number || "").localeCompare(String(b.number || "")));
   }
   function esc(s) {
-    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    return String(s == null ? "" : s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,""");
   }
 
   function load() {
@@ -162,23 +162,27 @@ tbody tr:hover td { background: rgba(31,111,106,0.04); }
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const p = JSON.parse(raw);
-        state.data = {
-          workCenters: p.workCenters || [],
-          people: p.people || [],
-          workOrders: p.workOrders || [],
-          absences: p.absences || [],
-          downtime: p.downtime || [],
-          version: p.version || 1,
-          updatedAt: p.updatedAt || Date.now()
-        };
+        state.data.workCenters = p.workCenters || [];
+        state.data.people = p.people || [];
+        state.data.workOrders = p.workOrders || [];
+        state.data.absences = p.absences || [];
+        state.data.downtime = p.downtime || [];
         return true;
       }
     } catch (e) {}
     return false;
   }
+  /** Merge-only save — never wipe WI / travelers / qaRecords / etc. */
   function save() {
-    state.data.updatedAt = Date.now();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+    var base = {};
+    try { base = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (e) { base = {}; }
+    base.workCenters = state.data.workCenters;
+    base.people = state.data.people;
+    base.workOrders = state.data.workOrders;
+    base.absences = state.data.absences || [];
+    base.downtime = state.data.downtime || [];
+    base.updatedAt = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(base));
   }
 
   function toast(msg, kind) {
@@ -192,7 +196,6 @@ tbody tr:hover td { background: rgba(31,111,106,0.04); }
   function addLog(fields) {
     const woId = fields.workOrderId || "";
     const wo = woId ? (state.data.workOrders || []).find(x => String(x.id) === String(woId)) : null;
-    // If work order picked and no center chosen, inherit WO center
     let centerId = fields.workCenterId || "";
     if (!centerId && wo && wo.workCenterId) centerId = wo.workCenterId;
     const entry = {
@@ -225,7 +228,6 @@ tbody tr:hover td { background: rgba(31,111,106,0.04); }
     entry.status = "closed";
     if (!entry.endDate) entry.endDate = todayISO();
     if (!entry.endTime) entry.endTime = nowTime();
-    // rough minutes if not set
     if (!entry.minutes && entry.startDate && entry.endDate) {
       const s = new Date(entry.startDate + "T" + (entry.startTime || "00:00"));
       const e = new Date(entry.endDate + "T" + (entry.endTime || "00:00"));
@@ -286,6 +288,7 @@ tbody tr:hover td { background: rgba(31,111,106,0.04); }
           <a class="tab" href="WorkOrders.html">Work Orders</a>
           <a class="tab" href="WipBoard.html">WIP Board</a>
           <a class="tab" href="WorkInstructions.html">Work Instructions</a>
+          <a class="tab is-on" href="DowntimeLogger.html">Downtime</a>
           <a class="tab" href="Analytics.html">Analytics</a>
           <a class="tab" href="Settings.html">Settings</a>
         </nav>
@@ -460,15 +463,11 @@ tbody tr:hover td { background: rgba(31,111,106,0.04); }
 
   if (!load()) {
     fetch("capacity-data.json").then(r => r.json()).then(d => {
-      state.data = {
-        workCenters: d.workCenters || [],
-        people: d.people || [],
-        workOrders: d.workOrders || [],
-        absences: d.absences || [],
-        downtime: d.downtime || [],
-        version: 1,
-        updatedAt: Date.now()
-      };
+      state.data.workCenters = d.workCenters || [];
+      state.data.people = d.people || [];
+      state.data.workOrders = d.workOrders || [];
+      state.data.absences = d.absences || [];
+      state.data.downtime = d.downtime || [];
       save();
       render();
     }).catch(() => render());
