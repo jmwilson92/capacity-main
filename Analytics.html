@@ -60,13 +60,18 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
   var state = { range: "week", view: "timecard" };
 
   function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) {
-      if (ch === "&") return "&" + "amp;";
-      if (ch === "<") return "&" + "lt;";
-      if (ch === ">") return "&" + "gt;";
-      if (ch === '"') return "&" + "quot;";
-      return "&#39;";
-    });
+    var t = String(s == null ? "" : s);
+    var out = "";
+    for (var i = 0; i < t.length; i++) {
+      var c = t.charAt(i);
+      if (c === "&") out += "&" + "amp;";
+      else if (c === "<") out += "&" + "lt;";
+      else if (c === ">") out += "&" + "gt;";
+      else if (c === '"') out += "&" + "quot;";
+      else if (c === "'") out += "&" + "#39;";
+      else out += c;
+    }
+    return out;
   }
 
   function load() {
@@ -352,7 +357,13 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
     }
   });
 
-  render();
+  if (window.SuiteNav && SuiteNav.requireAuth) {
+    SuiteNav.requireAuth(function () {
+      render();
+    });
+  } else {
+    render();
+  }
 })();
 </script>
 </body>
