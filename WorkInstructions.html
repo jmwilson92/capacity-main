@@ -41,18 +41,18 @@ dialog{border:0;padding:0;background:transparent;max-width:100%}dialog::backdrop
 .modal-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1.15rem;width:min(720px,96vw);max-height:90vh;overflow:auto;box-shadow:var(--shadow)}
 .modal-actions{display:flex;justify-content:space-between;gap:.5rem;margin-top:.75rem;flex-wrap:wrap}
 .toasts{position:fixed;right:1rem;bottom:1rem;z-index:40}.toast{background:var(--accent-ink);color:#fff;padding:.65rem .8rem;border-radius:10px;margin-top:.35rem}
-.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.65rem;margin-top:.5rem}
-.media-item{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:#fff}
-.media-item img,.media-item video{width:100%;display:block;max-height:220px;object-fit:contain;background:#111}
+.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.65rem;margin-top:.5rem}
+.media-item{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:#fff;position:relative}
+.media-item img,.media-item video{width:100%;display:block;max-height:180px;object-fit:contain;background:#111}
 .media-item .cap{padding:.45rem .55rem;font-size:.8rem;color:var(--ink-soft)}
 .media-item a{display:block;padding:.65rem;color:var(--accent-ink);font-weight:650;text-decoration:none;word-break:break-all}
+.media-item .rm{position:absolute;top:.35rem;right:.35rem;border:0;background:rgba(155,44,26,.9);color:#fff;border-radius:999px;width:1.5rem;height:1.5rem;cursor:pointer;font-size:.75rem;line-height:1}
 @media(max-width:900px){.split,.form-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div id="app">Loading…</div>
 <script>
-
 function __wi(){
 const STORAGE_KEY="capacity-tracker.v1";
 const DEFAULT_CABLE=[
@@ -88,7 +88,7 @@ const state={
   view:"library",libraryTab:"cable",selectedOp:null,selectedAsm:null,editTarget:null
 };
 
-function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function esc(s){return String(s==null?"":s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/\"/g,""");}
 function stepText(s){return typeof s==="string"?s:(s&&s.text)||"";}
 function stepMedia(s){return (s&&typeof s==="object"&&Array.isArray(s.media))?s.media:[];}
 function normalizeSteps(steps){
@@ -105,14 +105,9 @@ function normalizeSteps(steps){
     };
   });
 }
-function centerName(id){var c=(state.data.workCenters||[]).find(function(x){return String(x.id)===String(id);});return c?c.name:"";
-}
-function stepTypeLabel(st){
-  return st==="qa"?"QA":st==="test"?"Test":"Assembly";
-}
-function asmProjectedHours(asm){
-  return normalizeSteps(asm&&asm.steps).reduce(function(sum,s){return sum+(Number(s.projectedHours)||0);},0);
-}
+function centerName(id){var c=(state.data.workCenters||[]).find(function(x){return String(x.id)===String(id);});return c?c.name:"";}
+function stepTypeLabel(st){return st==="qa"?"QA":st==="test"?"Test":"Assembly";}
+function asmProjectedHours(asm){return normalizeSteps(asm&&asm.steps).reduce(function(sum,s){return sum+(Number(s.projectedHours)||0);},0);}
 function uid(p){return p+"_"+Math.random().toString(36).slice(2,9);}
 function toast(m){var el=document.createElement("div");el.className="toast";el.textContent=m;(document.querySelector(".toasts")||document.body).appendChild(el);setTimeout(function(){el.remove();},2800);}
 
@@ -141,7 +136,6 @@ function load(){
     var p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
     state.data.workOrders=p.workOrders||[];
     state.data.people=p.people||[];
-    state.data.workCenters=p.workCenters||[];
     state.data.workCenters=p.workCenters||[];
     state.data.assemblies=(p.assemblies&&p.assemblies.length)?p.assemblies.map(function(a){
       return Object.assign({media:[]}, a, {
@@ -187,31 +181,36 @@ function toolHtml(k){
   return "";
 }
 
-function mediaHtml(media){
+function mediaHtml(media, opts){
   media=media||[];
+  opts=opts||{};
   if(!media.length) return '<p style="color:var(--ink-soft);margin:0;font-size:.88rem">No photos, videos, or links yet.</p>';
   return '<div class="media-grid">'+media.map(function(m,i){
+    var rm = opts.removable
+      ? '<button type="button" class="rm" title="Remove" data-action="remove-media" data-kind="'+esc(opts.kind||'')+'" data-id="'+esc(opts.id||'')+'" data-step="'+(opts.stepIndex!=null?opts.stepIndex:-1)+'" data-mi="'+i+'">x</button>'
+      : "";
     if(m.type==="image"){
-      return '<div class="media-item"><img src="'+esc(m.url)+'" alt="'+esc(m.caption||"")+'"><div class="cap">'+esc(m.caption||"Photo")+'</div></div>';
+      return '<div class="media-item">'+rm+'<img src="'+esc(m.url)+'" alt="'+esc(m.caption||'')+'"><div class="cap">'+esc(m.caption||("Photo "+(i+1)))+'</div></div>';
     }
     if(m.type==="video"){
       if(/youtube\.com|youtu\.be|vimeo\.com/i.test(m.url)){
-        return '<div class="media-item"><a href="'+esc(m.url)+'" target="_blank" rel="noopener">Video: '+esc(m.caption||m.url)+'</a></div>';
+        return '<div class="media-item">'+rm+'<a href="'+esc(m.url)+'" target="_blank" rel="noopener">Video: '+esc(m.caption||m.url)+'</a></div>';
       }
-      return '<div class="media-item"><video src="'+esc(m.url)+'" controls preload="metadata"></video><div class="cap">'+esc(m.caption||"Video")+'</div></div>';
+      return '<div class="media-item">'+rm+'<video src="'+esc(m.url)+'" controls preload="metadata"></video><div class="cap">'+esc(m.caption||"Video")+'</div></div>';
     }
-    return '<div class="media-item"><a href="'+esc(m.url)+'" target="_blank" rel="noopener">'+(m.caption?esc(m.caption):'Open link')+'<div style="font-weight:400;font-size:.75rem;margin-top:.25rem;color:var(--ink-soft)">'+esc(m.url)+'</div></a></div>';
-  }).join("")+'</div>';
+    return '<div class="media-item">'+rm+'<a href="'+esc(m.url)+'" target="_blank" rel="noopener">'+(m.caption?esc(m.caption):'Open link')+'<div style="font-weight:400;font-size:.75rem;margin-top:.25rem;color:var(--ink-soft)">'+esc(m.url)+'</div></a></div>';
+  }).join('')+'</div>';
 }
 
 function shell(inner){
-  return '<div class="top"><div class="top-row"><div class="brand"><div class="mark">WI</div><div><h1>Work Instructions</h1><p>Library · edit · photos / video / SharePoint links</p></div></div></div>'+
+  return '<div class="top"><div class="top-row"><div class="brand"><div class="mark">WI</div><div><h1>Work Instructions</h1><p>Library · edit · multiple photos per step</p></div></div></div>'+
   '<nav class="tabs">'+
   '<a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>'+
   '<a class="tab" href="CapacityTracker.html#planning">Planning</a>'+
   '<a class="tab" href="WorkOrders.html">Work Orders</a>'+
   '<a class="tab" href="WipBoard.html">WIP Board</a>'+
   '<a class="tab is-on" href="WorkInstructions.html">Work Instructions</a>'+
+  '<a class="tab" href="DowntimeLogger.html">Downtime</a>'+
   '<a class="tab" href="Analytics.html">Analytics</a>'+
   '<a class="tab" href="Settings.html">Settings</a>'+
   '</nav></div><div class="wrap">'+inner+'</div><div class="toasts"></div><dialog id="modal"></dialog>';
@@ -221,18 +220,19 @@ function renderLibrary(){
   var list=ops();
   var cards=list.map(function(op){
     var mc=(op.media||[]).length;
-    return '<div class="card op-card" data-action="open-op" data-id="'+op.id+'"><h3>'+esc(op.name)+'</h3><p>'+op.steps.length+' steps | '+op.qa.length+' QA'+(mc?' | '+mc+' media':'')+(op.doc?' | '+esc(op.doc):'')+'</p></div>';
+    var smc=normalizeSteps(op.steps).reduce(function(n,s){return n+stepMedia(s).length;},0);
+    return '<div class="card op-card" data-action="open-op" data-id="'+op.id+'"><h3>'+esc(op.name)+'</h3><p>'+op.steps.length+' steps | '+op.qa.length+' QA'+(mc||smc?' | '+(mc+smc)+' media':'')+(op.doc?' | '+esc(op.doc):'')+'</p></div>';
   }).join("");
   var L=linked(state.libraryTab);
   var linkedHtml=L.length?'<ul>'+L.slice(0,12).map(function(w){return '<li><b>'+esc(w.number)+'</b> '+esc(w.title||'')+'</li>';}).join('')+'</ul>':'<p style="color:var(--ink-soft);margin:0">None yet.</p>';
   return shell(
     '<div class="page-head"><h2 style="margin:0">Work instruction library</h2>'+
-    '<p style="color:var(--ink-soft)">Browse and <b>edit</b> generics and product WIs. Check in from Work Orders only.</p></div>'+
+    '<p style="color:var(--ink-soft)">Browse and <b>edit</b> generics and product WIs. Multiple photos per step supported.</p></div>'+
     '<div class="subtabs">'+
     '<button class="subtab '+(state.libraryTab==="cable"?"is-on":"")+'" data-action="lib" data-tab="cable">Generic cable</button>'+
     '<button class="subtab '+(state.libraryTab==="assembly"?"is-on":"")+'" data-action="lib" data-tab="assembly">Generic assembly / POD</button>'+
     '<button class="subtab" data-action="view" data-view="products">Product / LRU WIs</button></div>'+
-    '<div class="warn-box">Tag work orders as Cable, Assembly/POD, or a Product WI so jobs link here. Add SharePoint photo/video links on each instruction.</div>'+
+    '<div class="warn-box">On a step, use <b>Add media</b> / <b>Media</b> as many times as you need, or multi-select photos in one upload.</div>'+
     '<div class="grid">'+cards+'</div>'+
     '<div class="card" style="margin-top:1rem"><h3 style="margin:0 0 .5rem;font-size:.95rem">Open jobs tagged '+(state.libraryTab==="cable"?"Cable":"Assembly/POD")+'</h3>'+linkedHtml+'</div>'
   );
@@ -242,9 +242,9 @@ function renderOp(){
   var op=opById(state.selectedOp);if(!op){state.view="library";return renderLibrary();}
   var steps=op.steps.map(function(s,i){
     var media=stepMedia(s);
-    return '<li class="step-item"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start;flex-wrap:wrap"><div><span class="pill">'+(i+1)+'</span> '+esc(stepText(s))+'</div>'+
+    return '<li class="step-item"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start;flex-wrap:wrap"><div><span class="pill">'+(i+1)+'</span> '+esc(stepText(s))+(media.length?' <span class="pill">'+media.length+' photo(s)</span>':'')+'</div>'+
       '<button class="btn small" data-action="add-step-media" data-kind="op" data-id="'+op.id+'" data-step="'+i+'">Add media</button></div>'+
-      (media.length?'<div style="margin-top:.5rem">'+mediaHtml(media)+'</div>':'')+
+      (media.length?'<div style="margin-top:.5rem">'+mediaHtml(media,{removable:true,kind:"op",id:op.id,stepIndex:i})+'</div>':'')+
       '</li>';
   }).join('');
   var qa=op.qa.map(function(q){return '<li class="step-item">'+esc(q)+'</li>';}).join('');
@@ -256,7 +256,7 @@ function renderOp(){
     '<h2 style="margin:.5rem 0 0">'+esc(op.name)+'</h2>'+
     '<p style="color:var(--ink-soft)">'+(op.doc?esc(op.doc)+' | ':'')+'Generic '+(state.libraryTab==="assembly"?"assembly/POD":"cable")+' operation</p>'+
     (op.hasTool?'<div class="card"><h3 style="margin:0 0 .5rem">Tooling</h3>'+toolHtml(op.hasTool)+'</div>':'')+
-    '<div class="card" style="margin-top:.85rem"><h3 style="margin:0 0 .5rem">Instruction-level media</h3><p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .5rem">Prefer attaching media on each step below.</p>'+mediaHtml(op.media)+'</div>'+
+    '<div class="card" style="margin-top:.85rem"><h3 style="margin:0 0 .5rem">Instruction-level media</h3><p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .5rem">Prefer attaching media on each step below. Multiple photos OK.</p>'+mediaHtml(op.media,{removable:true,kind:"op",id:op.id,stepIndex:-1})+'</div>'+
     '<div class="split" style="margin-top:.85rem"><div class="card"><h3 style="margin:0 0 .5rem">Steps</h3><ul class="step-list">'+steps+'</ul></div>'+
     '<div class="card"><h3 style="margin:0 0 .5rem">QA</h3><ul class="step-list">'+qa+'</ul></div></div>'
   );
@@ -266,11 +266,13 @@ function renderProducts(){
   var list=state.data.assemblies||[];
   var cards=list.map(function(a){
     var mc=(a.media||[]).length;
-    var ph=asmProjectedHours(a); return '<div class="card op-card" data-action="open-asm" data-id="'+a.id+'"><h3>'+esc(a.name)+'</h3><p>'+esc(a.productCode||'')+' | '+(a.steps||[]).length+' steps'+(ph?' | '+ph+'h projected':'')+(mc?' | '+mc+' media':'')+'</p><p style="margin-top:.35rem">'+linked("product",a.id).length+' open job(s) linked</p></div>';
+    var smc=normalizeSteps(a.steps).reduce(function(n,s){return n+stepMedia(s).length;},0);
+    var ph=asmProjectedHours(a);
+    return '<div class="card op-card" data-action="open-asm" data-id="'+a.id+'"><h3>'+esc(a.name)+'</h3><p>'+esc(a.productCode||'')+' | '+(a.steps||[]).length+' steps'+(ph?' | '+ph+'h projected':'')+(mc||smc?' | '+(mc+smc)+' media':'')+'</p><p style="margin-top:.35rem">'+linked("product",a.id).length+' open job(s) linked</p></div>';
   }).join('');
   return shell(
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">'+
-    '<div><h2 style="margin:0">Product / LRU / POD WIs</h2><p style="color:var(--ink-soft)">Create and edit custom instructions.</p></div>'+
+    '<div><h2 style="margin:0">Product / LRU / POD WIs</h2><p style="color:var(--ink-soft)">Create and edit custom instructions. Multiple photos per step.</p></div>'+
     '<button class="btn primary" data-action="new-product">New product WI</button></div>'+
     '<div class="subtabs">'+
     '<button class="subtab" data-action="lib" data-tab="cable">Generic cable</button>'+
@@ -285,9 +287,9 @@ function renderAsm(){
   var steps=(a.steps||[]).map(function(s,i){
     var media=stepMedia(s);
     var sn=typeof s==="string"?{text:s,stepType:"assembly",projectedHours:0}:s;
-    return '<li class="step-item"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start;flex-wrap:wrap"><div><span class="pill">'+(i+1)+'</span> <span class="pill">'+esc(stepTypeLabel(sn.stepType||"assembly"))+'</span> '+(sn.projectedHours?('<span class="pill">'+sn.projectedHours+'h</span> '):'')+esc(stepText(s))+'</div>'+
+    return '<li class="step-item"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start;flex-wrap:wrap"><div><span class="pill">'+(i+1)+'</span> <span class="pill">'+esc(stepTypeLabel(sn.stepType||"assembly"))+'</span> '+(sn.projectedHours?('<span class="pill">'+sn.projectedHours+'h</span> '):'')+esc(stepText(s))+(media.length?' <span class="pill">'+media.length+' photo(s)</span>':'')+'</div>'+
       '<button class="btn small" data-action="add-step-media" data-kind="asm" data-id="'+a.id+'" data-step="'+i+'">Add media</button></div>'+
-      (media.length?'<div style="margin-top:.5rem">'+mediaHtml(media)+'</div>':'')+
+      (media.length?'<div style="margin-top:.5rem">'+mediaHtml(media,{removable:true,kind:"asm",id:a.id,stepIndex:i})+'</div>':'')+
       '</li>';
   }).join('');
   var qa=(a.qa||[]).map(function(q){return '<li class="step-item">'+esc(typeof q==="string"?q:q.text)+'</li>';}).join('');
@@ -297,12 +299,11 @@ function renderAsm(){
     '<button class="btn primary small" data-action="edit-asm" data-id="'+a.id+'">Edit instruction</button>'+
     '<button class="btn small" data-action="add-media" data-kind="asm" data-id="'+a.id+'">Add photo / video / link</button></div>'+
     '<h2 style="margin:.5rem 0 0">'+esc(a.name)+'</h2><p style="color:var(--ink-soft)">'+esc(a.productCode||'')+'</p>'+
-    '<div class="card"><h3 style="margin:0 0 .5rem">Instruction-level media</h3><p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .5rem">Prefer attaching media on each step below.</p>'+mediaHtml(a.media)+'</div>'+
+    '<div class="card"><h3 style="margin:0 0 .5rem">Instruction-level media</h3><p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .5rem">Prefer attaching media on each step. Multiple photos OK.</p>'+mediaHtml(a.media,{removable:true,kind:"asm",id:a.id,stepIndex:-1})+'</div>'+
     '<div class="split" style="margin-top:.85rem"><div class="card"><h3 style="margin:0 0 .5rem">Steps</h3><ul class="step-list">'+steps+'</ul></div>'+
     '<div class="card"><h3 style="margin:0 0 .5rem">QA</h3><ul class="step-list">'+qa+'</ul></div></div>'
   );
 }
-
 
 function renderStepEditorList(kind, id){
   var obj = kind==="op" ? opById(id) : asmById(id);
@@ -347,7 +348,6 @@ function openEditOneStep(kind, id, stepIndex, isNew){
     '<option value="">— Unassigned —</option>'+
     (state.data.workCenters||[]).map(function(c){return '<option value="'+c.id+'" '+(String(existing.workCenterId||'')===String(c.id)?'selected':'')+'>'+esc(c.name)+'</option>';}).join('')+
     '</select></label>'+
-    '<p class="span-2" style="margin:0;color:var(--ink-soft);font-size:.82rem">Hours for this step load that work center. Capacity works backward from the work order due date across the sequence of steps.</p>'+
     '</div><div class="modal-actions"><button type="button" class="btn ghost" data-action="back-step-editor" data-kind="'+kind+'" data-id="'+id+'">Back</button>'+
     '<button class="btn primary" type="submit">Save step</button></div></form></div>';
   d.showModal();
@@ -369,7 +369,7 @@ function openEditOp(id){
     '<button class="btn primary" type="submit">Save header / QA</button></div></form>'+
     '<hr style="border:0;border-top:1px solid var(--rule);margin:1rem 0">'+
     '<h4 style="margin:0 0 .5rem">Steps</h4>'+
-    '<p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .65rem">Edit one step at a time, or add a new step.</p>'+
+    '<p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .65rem">Edit one step at a time. Use Media to attach multiple photos per step.</p>'+
     renderStepEditorList("op", id)+
     '<button class="btn primary" style="margin-top:.65rem" data-action="add-step" data-kind="op" data-id="'+id+'">+ New step</button>'+
     '</div>';
@@ -389,36 +389,65 @@ function openEditAsm(id){
     '<button class="btn primary" type="submit">Save header / QA</button></div></form>'+
     '<hr style="border:0;border-top:1px solid var(--rule);margin:1rem 0">'+
     '<h4 style="margin:0 0 .5rem">Steps</h4>'+
-    '<p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .65rem">Edit one step at a time, or add a new step.</p>'+
+    '<p style="color:var(--ink-soft);font-size:.85rem;margin:0 0 .65rem">Edit one step at a time. Use Media for multiple photos per step.</p>'+
     renderStepEditorList("asm", id)+
     '<button class="btn primary" style="margin-top:.65rem" data-action="add-step" data-kind="asm" data-id="'+id+'">+ New step</button>'+
     '</div>';
   d.showModal();
 }
+
 function openAddMedia(kind,id,stepIndex){
   state.editTarget={kind:kind,id:id,media:true,stepIndex:stepIndex==null?-1:Number(stepIndex)};
+  var obj=kind==="op"?opById(id):asmById(id);
+  if(!obj) return;
+  obj.steps=normalizeSteps(obj.steps);
+  var si=state.editTarget.stepIndex;
+  var existing = si>=0 && obj.steps[si] ? stepMedia(obj.steps[si]) : (obj.media||[]);
   var d=document.getElementById("modal");
-  var stepLabel = state.editTarget.stepIndex>=0 ? (" for step "+(state.editTarget.stepIndex+1)) : " (instruction-level)";
+  var stepLabel = si>=0 ? (" for step "+(si+1)) : " (instruction-level)";
   d.innerHTML='<div class="modal-card"><h3 style="margin:0">Add photo, video, or link'+stepLabel+'</h3>'+
-    '<p style="color:var(--ink-soft);font-size:.88rem">Attach to this step. Prefer SharePoint / OneDrive links for large files.</p>'+
+    '<p style="color:var(--ink-soft);font-size:.88rem">You can attach <b>multiple</b> photos. Multi-select files, or add one URL at a time and keep opening this dialog.</p>'+
+    (existing.length?'<div style="margin:.75rem 0"><b>Already on this step ('+existing.length+')</b>'+mediaHtml(existing,{removable:true,kind:kind,id:id,stepIndex:si})+'</div>':'')+
     '<form data-form="add-media"><div class="form-grid">'+
     '<label class="span-2">Type<select class="field" name="type" id="mtype">'+
+    '<option value="image">Photo (upload one or many, or URL)</option>'+
     '<option value="link">URL / SharePoint link</option>'+
-    '<option value="image">Photo (URL or upload)</option>'+
     '<option value="video">Video (URL)</option></select></label>'+
-    '<label class="span-2">URL (SharePoint, stream, image link)<input class="field" name="url" placeholder="https://..." id="murl"></label>'+
-    '<label class="span-2" id="mfile-wrap" style="display:none">Or upload photo<input class="field" type="file" name="file" accept="image/*" id="mfile"></label>'+
-    '<label class="span-2">Caption / label<input class="field" name="caption" placeholder="e.g. Correct crimp appearance"></label>'+
-    '</div><div class="modal-actions"><button type="button" class="btn ghost" data-action="close-modal">Cancel</button>'+
-    '<button class="btn primary" type="submit">Add</button></div></form></div>';
+    '<label class="span-2">URL (optional if uploading)<input class="field" name="url" placeholder="https://..." id="murl"></label>'+
+    '<label class="span-2" id="mfile-wrap">Upload photo(s) — hold Ctrl/Cmd to select multiple<input class="field" type="file" name="file" accept="image/*" id="mfile" multiple></label>'+
+    '<label class="span-2">Caption / label (applies to all in this add)<input class="field" name="caption" placeholder="e.g. Correct crimp appearance"></label>'+
+    '</div><div class="modal-actions"><button type="button" class="btn ghost" data-action="close-modal">Done</button>'+
+    '<button class="btn primary" type="submit">Add to step</button></div></form></div>';
   d.showModal();
   var type=d.querySelector("#mtype"); var wrap=d.querySelector("#mfile-wrap");
-  type.onchange=function(){wrap.style.display=type.value==="image"?"":"none";};
+  function sync(){wrap.style.display=type.value==="image"?"":"none";}
+  type.onchange=sync; sync();
 }
 
 function targetObj(kind,id){
   if(kind==="op") return opById(id);
   return asmById(id);
+}
+
+function removeMedia(kind, id, stepIndex, mediaIndex){
+  var obj=targetObj(kind,id); if(!obj) return;
+  var si=Number(stepIndex);
+  var mi=Number(mediaIndex);
+  if(si>=0){
+    obj.steps=normalizeSteps(obj.steps);
+    if(!obj.steps[si] || !obj.steps[si].media) return;
+    obj.steps[si].media.splice(mi,1);
+  } else {
+    if(!obj.media) return;
+    obj.media.splice(mi,1);
+  }
+  save();
+  toast("Media removed");
+  if(state.editTarget && state.editTarget.media){
+    openAddMedia(kind, id, si);
+  } else {
+    render();
+  }
 }
 
 function render(){
@@ -433,11 +462,12 @@ document.addEventListener("click",function(e){
   else if(a==="view"){state.view=b.getAttribute("data-view");render();}
   else if(a==="open-op"){state.selectedOp=b.getAttribute("data-id");state.view="detail";render();}
   else if(a==="open-asm"){state.selectedAsm=b.getAttribute("data-id");state.view="asm";render();}
-  else if(a==="close-modal"){var d=document.getElementById("modal");if(d)d.close();}
+  else if(a==="close-modal"){var d=document.getElementById("modal");if(d)d.close(); render();}
   else if(a==="edit-op") openEditOp(b.getAttribute("data-id"));
   else if(a==="edit-asm") openEditAsm(b.getAttribute("data-id"));
   else if(a==="add-media") openAddMedia(b.getAttribute("data-kind"), b.getAttribute("data-id"), -1);
   else if(a==="add-step-media") openAddMedia(b.getAttribute("data-kind"), b.getAttribute("data-id"), b.getAttribute("data-step"));
+  else if(a==="remove-media") removeMedia(b.getAttribute("data-kind"), b.getAttribute("data-id"), b.getAttribute("data-step"), b.getAttribute("data-mi"));
   else if(a==="edit-one-step") openEditOneStep(b.getAttribute("data-kind"), b.getAttribute("data-id"), b.getAttribute("data-step"), false);
   else if(a==="add-step") openEditOneStep(b.getAttribute("data-kind"), b.getAttribute("data-id"), -1, true);
   else if(a==="back-step-editor") reopenStepEditor(b.getAttribute("data-kind"), b.getAttribute("data-id"));
@@ -525,37 +555,59 @@ document.addEventListener("submit",function(e){
     var kind=state.editTarget.kind; var id=state.editTarget.id;
     var obj=targetObj(kind,id);if(!obj)return;
     if(!obj.media) obj.media=[];
-    var type=String(fd.get("type")||"link");
+    var type=String(fd.get("type")||"image");
     var caption=String(fd.get("caption")||"").trim();
     var url=String(fd.get("url")||"").trim();
     var fileInput=f.querySelector("#mfile");
-    function finish(u){
-      if(!u){toast("Need a URL or photo");return;}
-      var item={id:uid("m"),type:type,url:u,caption:caption};
-      var si=state.editTarget.stepIndex;
+    var si=state.editTarget.stepIndex;
+
+    function pushItem(item){
       if(si!=null && si>=0){
         obj.steps=normalizeSteps(obj.steps);
-        if(!obj.steps[si]){toast("Step not found");return;}
+        if(!obj.steps[si]){toast("Step not found");return false;}
         if(!obj.steps[si].media) obj.steps[si].media=[];
         obj.steps[si].media.push(item);
       } else {
         if(!obj.media) obj.media=[];
         obj.media.push(item);
       }
-      save();
-      toast(si>=0?("Media added to step "+(si+1)):"Media added");
-      if(si>=0){ reopenStepEditor(kind, id); }
-      else { document.getElementById("modal").close(); render(); }
+      return true;
     }
-    if(type==="image" && fileInput && fileInput.files && fileInput.files[0]){
-      var file=fileInput.files[0];
-      if(file.size>2.5*1024*1024){toast("Photo too large for browser store (>2.5MB). Use a SharePoint URL instead.");return;}
-      var reader=new FileReader();
-      reader.onload=function(){finish(reader.result);};
-      reader.readAsDataURL(file);
+
+    function done(count){
+      save();
+      toast(count>1?(count+" items added to step"):(si>=0?("Media added to step "+(si+1)):"Media added"));
+      openAddMedia(kind, id, si);
+    }
+
+    if(type==="image" && fileInput && fileInput.files && fileInput.files.length){
+      var files=Array.prototype.slice.call(fileInput.files);
+      var tooBig=files.filter(function(file){return file.size>2.5*1024*1024;});
+      if(tooBig.length){
+        toast(tooBig.length+" file(s) over 2.5MB skipped. Use SharePoint URLs for large photos.");
+        files=files.filter(function(file){return file.size<=2.5*1024*1024;});
+      }
+      if(!files.length && !url){toast("Need a URL or photo under 2.5MB");return;}
+      var pending=files.length;
+      var added=0;
+      if(url){
+        if(pushItem({id:uid("m"),type:type,url:url,caption:caption})) added++;
+      }
+      if(!files.length){ if(added) done(added); return; }
+      files.forEach(function(file, idx){
+        var reader=new FileReader();
+        reader.onload=function(){
+          if(pushItem({id:uid("m"),type:"image",url:reader.result,caption:caption||(file.name||("Photo "+(idx+1)))})) added++;
+          pending--;
+          if(pending<=0) done(added);
+        };
+        reader.onerror=function(){ pending--; if(pending<=0) done(added); };
+        reader.readAsDataURL(file);
+      });
       return;
     }
-    finish(url);
+    if(!url){toast("Need a URL or photo");return;}
+    if(pushItem({id:uid("m"),type:type,url:url,caption:caption})) done(1);
   }
 });
 
@@ -567,7 +619,6 @@ if(!(state.data.workOrders||[]).length){
 } else render();
 }
 __wi();
-
 </script>
 </body>
 </html>
