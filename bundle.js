@@ -2,9 +2,9 @@
 const fs = require("fs");
 const path = require("path");
 
-const root = path.join(__dirname, "..");
-const css = fs.readFileSync(path.join(root, "css/app.css"), "utf8");
-const scripts = ["js/calc.js", "js/store.js", "js/sharepoint.js", "js/sync.js", "js/auth.js", "js/graph.js", "js/filestore.js", "js/app.js"]
+const root = __dirname;
+const css = fs.readFileSync(path.join(root, "app.css"), "utf8");
+const scripts = ["calc.js", "store.js", "sharepoint.js", "sync.js", "auth.js", "graph.js", "filestore.js", "app.js"]
   .map((rel) => fs.readFileSync(path.join(root, rel), "utf8"))
   .join("\n;\n");
 
