@@ -368,6 +368,20 @@
         })
         .join("");
     },
+    /** Force full suite tabs (incl. Downtime) into every .tabs / #tabs bar */
+    paintTabs: function (activeLabel) {
+      try {
+        var html = this.html(activeLabel);
+        var nodes = document.querySelectorAll(".tabs, #tabs, nav.tabs");
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          if (el.getAttribute("data-suite-nav-lock") === "1") continue;
+          if (el.innerHTML.indexOf("DowntimeLogger") < 0) {
+            el.innerHTML = html;
+          }
+        }
+      } catch (e) {}
+    },
     authHtml: authHtml,
     session: readSession,
     requireAuth: requireAuth,
@@ -390,8 +404,22 @@
   function auto() {
     try {
       SuiteNav.paintAuth();
+      SuiteNav.paintTabs();
     } catch (e) {}
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", auto);
   else setTimeout(auto, 0);
+
+  // Re-inject Downtime if a page rebuilds tabs without it (CapacityTracker, WIP, etc.)
+  if (!root.__suiteNavWatch) {
+    root.__suiteNavWatch = true;
+    var ticks = 0;
+    var timer = setInterval(function () {
+      ticks++;
+      try {
+        SuiteNav.paintTabs();
+      } catch (e) {}
+      if (ticks > 40) clearInterval(timer);
+    }, 500);
+  }
 })(typeof window !== "undefined" ? window : globalThis);
