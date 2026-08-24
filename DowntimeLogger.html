@@ -62,11 +62,13 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
   };
 
   function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&")
-      .replace(/</g, "<")
-      .replace(/>/g, ">")
-      .replace(/"/g, """);
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) {
+      if (ch === "&") return "\x26amp;";
+      if (ch === "<") return "\x26lt;";
+      if (ch === ">") return "\x26gt;";
+      if (ch === '"') return "\x26quot;";
+      return "\x26#39;";
+    });
   }
 
   function load() {
@@ -225,7 +227,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
             "<td>" +
             (d.notes ? esc(d.notes) : "—") +
             "</td>" +
-            "<td style=\"white-space:nowrap\">" +
+            '<td style="white-space:nowrap">' +
             (d.status === "open"
               ? '<button class="btn small primary" data-action="close" data-id="' +
                 esc(d.id) +
@@ -233,7 +235,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
               : "") +
             '<button class="btn small danger" data-action="delete" data-id="' +
             esc(d.id) +
-            '">×</button></td></tr>'
+            '">x</button></td></tr>'
           );
         })
         .join("");
@@ -251,7 +253,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
         '<a class="tab" href="Settings.html">Settings</a>' +
         "</nav></div>" +
         '<div class="wrap">' +
-        "<h2 style=\"margin:0 0 .35rem\">Downtime overview</h2>" +
+        '<h2 style="margin:0 0 .35rem">Downtime overview</h2>' +
         '<p style="color:var(--ink-soft);margin:0 0 1rem">Techs report from Work Orders. This page is the board.</p>' +
         '<div class="kpis">' +
         '<div class="kpi' +
