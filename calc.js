@@ -1,6 +1,11 @@
 /**
  * Capacity math for work centers, people, and work orders.
  * Works in the browser (window.CapacityCalc) and in Node tests.
+ *
+ * Lead-time standards (every open work order):
+ *   Ordering center — 1 hour, week of (kitting start − 6 weeks)
+ *   Kitting center  — 1 hour per kit, week of (job start − 3 workdays)
+ * Centers are matched by name ("Ordering", "Kitting") or wc.kind.
  */
 (function (root, factory) {
   const api = factory();
@@ -14,6 +19,15 @@
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
   ];
+
+  /** Standard overhead hours applied to lead-time centers per open WO */
+  const LEAD = {
+    orderingHours: 1,
+    kittingHoursPerKit: 1,
+    kittingLeadWorkdays: 3,
+    orderingLeadWeeks: 6,
+    hoursPerWorkDay: 8
+  };
 
   function parseDate(value) {
     if (!value && value !== 0) return null;
@@ -57,6 +71,33 @@
   function addDays(date, n) {
     const d = parseDate(date) || parseDate(new Date());
     return new Date(d.getFullYear(), d.getMonth(), d.getDate() + Number(n));
+  }
+
+  function isWeekday(date) {
+    const d = parseDate(date);
+    if (!d) return false;
+    const day = d.getDay();
+    return day !== 0 && day !== 6;
+  }
+
+  function isWeekend(date) {
+    const d = parseDate(date);
+    if (!d) return false;
+    const day = d.getDay();
+    return day === 0 || day === 6;
+  }
+
+  /** Move n workdays forward (n>0) or backward (n<0), skipping weekends. */
+  function addWorkDays(date, n) {
+    const d = parseDate(date) || parseDate(new Date());
+    const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const step = n >= 0 ? 1 : -1;
+    let left = Math.abs(Number(n) || 0);
+    while (left > 0) {
+      out.setDate(out.getDate() + step);
+      if (isWeekday(out)) left -= 1;
+    }
+    return out;
   }
 
   function weekKey(date, weekStartsOn) {
@@ -114,20 +155,6 @@
     const hours = num(person && person.hoursPerWeek, 0);
     if (hours <= 0) return 0;
     return hours * efficiencyFactor(person);
-  }
-
-  function isWeekday(date) {
-    const d = parseDate(date);
-    if (!d) return false;
-    const day = d.getDay();
-    return day !== 0 && day !== 6;
-  }
-
-  function isWeekend(date) {
-    const d = parseDate(date);
-    if (!d) return false;
-    const day = d.getDay();
-    return day === 0 || day === 6;
   }
 
   function flagOn(value) {
@@ -276,6 +303,65 @@
     return Math.round((dueWeek - nowWeek) / (7 * MS_DAY));
   }
 
+  /**
+   * Classify a work center for lead-time rules.
+   * Prefer explicit wc.kind; otherwise match name.
+   */
+  function centerKind(wc) {
+    if (!wc) return "production";
+    const k = String(wc.kind || wc.role || "").toLowerCase().trim();
+    if (k === "ordering" || k === "order") return "ordering";
+    if (k === "kitting" || k === "kit") return "kitting";
+    if (k === "qa" || k === "quality" || k === "inspection") return "qa";
+    const n = String(wc.name || "").toLowerCase();
+    if (/\border(ing)?\b/.test(n)) return "ordering";
+    if (/\bkit(ting)?\b/.test(n)) return "kitting";
+    if (/\bqa\b|\bquality\b|\binspect/.test(n)) return "qa";
+    return "production";
+  }
+
+  /**
+   * Must-start date = due date minus workdays needed for remaining hours (8h/day).
+   */
+  function mustStartDate(wo, hoursPerDay) {
+    if (!wo || !isOpen(wo)) return null;
+    const due = parseDate(wo.dueDate);
+    if (!due) return null;
+    const rem = remainingHours(wo);
+    if (rem <= 0) return null;
+    const hpd = hoursPerDay > 0 ? hoursPerDay : LEAD.hoursPerWorkDay;
+    const daysNeeded = Math.max(1, Math.ceil(rem / hpd));
+    let lastWork = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    if (!isWeekday(lastWork)) lastWork = addWorkDays(lastWork, -1);
+    return daysNeeded <= 1 ? lastWork : addWorkDays(lastWork, -(daysNeeded - 1));
+  }
+
+  /**
+   * Kit qty for kitting hours. Defaults to 1 kit per work order.
+   */
+  function kitQuantity(wo) {
+    const q = num(wo && (wo.kitQty != null ? wo.kitQty : wo.quantity), 1);
+    return q > 0 ? q : 1;
+  }
+
+  /**
+   * Lead-time schedule for one open work order.
+   * jobStart → kittingStart (3 workdays earlier) → orderingStart (6 weeks earlier).
+   */
+  function leadTimeSchedule(wo, hoursPerDay) {
+    const jobStart = mustStartDate(wo, hoursPerDay);
+    if (!jobStart) return null;
+    const kittingStart = addWorkDays(jobStart, -LEAD.kittingLeadWorkdays);
+    const orderingStart = addDays(kittingStart, -(LEAD.orderingLeadWeeks * 7));
+    return {
+      jobStart,
+      kittingStart,
+      orderingStart,
+      orderingHours: LEAD.orderingHours,
+      kittingHours: LEAD.kittingHoursPerKit * kitQuantity(wo)
+    };
+  }
+
   function weeklyCapacityByCenter(people) {
     const map = Object.create(null);
     for (const person of people || []) {
@@ -323,11 +409,6 @@
     return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
   }
 
-  /**
-   * Split a work order's remaining hours into week buckets.
-   * due-week: all hours land in the due date's week
-   * spread: hours split evenly from the current week through the due week
-   */
   function distributeHours(wo, weeks, weekStartsOn, mode, from) {
     const hours = remainingHours(wo);
     if (hours <= 0) return {};
@@ -384,6 +465,7 @@
       name: wc.name || "Untitled",
       notes: wc.notes || "",
       color: wc.color || "#1f6f6a",
+      kind: centerKind(wc),
       weeklyCapacity: weeklyCap,
       headcount,
       remainingHours: 0,
@@ -392,6 +474,8 @@
       unscheduledHours: 0,
       completeHours: 0,
       openCount: 0,
+      leadOrderingHours: 0,
+      leadKittingHours: 0,
       loadByWeek: emptyWeekMap(weeks),
       capacityByWeek,
       timeOffByWeek,
@@ -456,6 +540,8 @@
       totals.unscheduledHours += center.unscheduledHours;
       totals.completeHours += center.completeHours;
       totals.openCount += center.openCount;
+      totals.leadOrderingHours += center.leadOrderingHours || 0;
+      totals.leadKittingHours += center.leadKittingHours || 0;
       totals.orders = totals.orders.concat(center.orders);
       totals.overdueOrders = totals.overdueOrders.concat(center.overdueOrders);
       for (const week of weeks) {
@@ -467,11 +553,6 @@
     return finalizeCenter(totals, weeks);
   }
 
-  /**
-   * A job "fits alone" if its remaining hours can be absorbed by this
-   * work center's capacity between now and the due week. Pass capacityByWeek
-   * (week key → hours) to account for PTO; otherwise weeklyCapacity is repeated.
-   */
   function fitsAlone(wo, weeklyCapacity, weekStartsOn, from, capacityByWeek) {
     if (!isOpen(wo)) return true;
     const hours = remainingHours(wo);
@@ -509,6 +590,58 @@
       }
     }
     return { capacityByWeek, timeOffByWeek };
+  }
+
+  function findCenterByKind(byCenter, workCenters, kind) {
+    for (const wc of workCenters || []) {
+      if (centerKind(wc) === kind) {
+        const row = byCenter[String(wc.id)];
+        if (row) return row;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Drop Ordering / Kitting hours onto their centers for every open WO.
+   * Production hours still land on the WO's assigned center via distributeHours.
+   */
+  function applyLeadTimeLoad(byCenter, workCenters, orders, weeks, weekStartsOn, from) {
+    const horizonKeys = new Set((weeks || []).map((w) => w.key));
+    const currentStart = startOfWeek(from || new Date(), weekStartsOn);
+    const orderingCenter = findCenterByKind(byCenter, workCenters, "ordering");
+    const kittingCenter = findCenterByKind(byCenter, workCenters, "kitting");
+    if (!orderingCenter && !kittingCenter) return;
+
+    for (const wo of orders || []) {
+      if (!isOpen(wo)) continue;
+      const sched = leadTimeSchedule(wo, LEAD.hoursPerWorkDay);
+      if (!sched) continue;
+
+      function place(center, when, hours, field) {
+        if (!center || hours <= 0 || !when) return;
+        const weekStart = startOfWeek(when, weekStartsOn);
+        const key = formatISO(weekStart);
+        if (weekStart < currentStart) {
+          center.overdueHours += hours;
+          center.remainingHours += hours;
+          if (field) center[field] = (center[field] || 0) + hours;
+          return;
+        }
+        if (horizonKeys.has(key)) {
+          center.loadByWeek[key] = (center.loadByWeek[key] || 0) + hours;
+          center.remainingHours += hours;
+          if (field) center[field] = (center[field] || 0) + hours;
+        } else {
+          center.laterHours += hours;
+          center.remainingHours += hours;
+          if (field) center[field] = (center[field] || 0) + hours;
+        }
+      }
+
+      place(orderingCenter, sched.orderingStart, sched.orderingHours, "leadOrderingHours");
+      place(kittingCenter, sched.kittingStart, sched.kittingHours, "leadKittingHours");
+    }
   }
 
   function summarize(data, options) {
@@ -573,6 +706,9 @@
       }
     }
 
+    // Ordering 1h / Kitting 1h per kit — timed from job must-start
+    applyLeadTimeLoad(byCenter, workCenters, orders, weeks, weekStartsOn, from);
+
     const centers = workCenters.map((wc) => finalizeCenter(byCenter[String(wc.id)], weeks));
     const totals = rollup(centers, weeks);
 
@@ -614,7 +750,8 @@
       absences,
       loadMode,
       weekStartsOn,
-      asOf: parseDate(from)
+      asOf: parseDate(from),
+      leadStandards: Object.assign({}, LEAD)
     };
   }
 
@@ -626,6 +763,7 @@
     formatUtil,
     startOfWeek,
     addDays,
+    addWorkDays,
     weekKey,
     weekLabel,
     planningWeeks,
@@ -641,6 +779,11 @@
     isOpen,
     isOverdue,
     weeksUntilDue,
+    centerKind,
+    mustStartDate,
+    leadTimeSchedule,
+    kitQuantity,
+    LEAD,
     weeklyCapacityByCenter,
     headcountByCenter,
     utilization,
