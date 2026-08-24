@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Work Orders</title>
 <style>
-:root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--card-2:#f7f1e6;--accent:#1f6f6a;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--over:#9b2c1a;--healthy:#2d6a3a;--healthy-soft:#d7ead9;--tight-soft:#f6e3c8;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
+:root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--card-2:#f7f1e6;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--over:#9b2c1a;--healthy:#2d6a3a;--healthy-soft:#d7ead9;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
 *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px}
 button,input,select,textarea{font:inherit}#app{min-height:100%}
 .top{position:sticky;top:0;z-index:20;background:rgba(243,239,230,.95);border-bottom:1px solid var(--rule)}
@@ -41,7 +41,7 @@ label{display:flex;flex-direction:column;gap:.25rem;font-size:.8rem;font-weight:
 .traveler-bar{background:var(--accent-ink);color:#f6f1e7;border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:1rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .op-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.55rem}
 .op-btn{padding:.85rem;text-align:left;border:1px solid var(--rule);border-radius:12px;background:var(--card);cursor:pointer;font:inherit}
-.op-btn.done{background:var(--healthy-soft);border-color:var(--healthy)}
+.op-btn.done{background:var(--healthy-soft)}
 .step-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.45rem}
 .step-item{background:var(--card-2);border-radius:10px;padding:.65rem .8rem}
 .step-item.done{background:var(--healthy-soft)}
@@ -49,13 +49,46 @@ label{display:flex;flex-direction:column;gap:.25rem;font-size:.8rem;font-weight:
 .choice{display:block;border:1px solid var(--rule);border-radius:12px;padding:.7rem .85rem;cursor:pointer;background:#fff;text-align:left;width:100%;font:inherit}
 .choice.is-on{border-color:var(--accent-ink);background:var(--accent-soft);font-weight:650}
 .notes-box{white-space:pre-wrap;background:var(--card-2);border-radius:10px;padding:.75rem;font-size:.9rem}
+.err{color:var(--over);padding:1rem;background:#f6d9d2;border-radius:10px;margin:1rem}
 </style>
 </head>
 <body>
 <div id="app">Loading…</div>
-<script src="time-track.js"></script>
 <script>
 (function(){
+// ---- inline time tracker (no external file required) ----
+var TT_ACTIVE="capacity-tracker.activeTime";
+var TT_STORE="capacity-tracker.v1";
+function ttRead(){try{return JSON.parse(sessionStorage.getItem(TT_ACTIVE)||"null");}catch(e){return null;}}
+function ttWrite(a){if(!a)sessionStorage.removeItem(TT_ACTIVE);else sessionStorage.setItem(TT_ACTIVE,JSON.stringify(a));}
+window.TimeTrack={
+  start:function(session,wo,travelerId){
+    if(!session||!wo)return null;
+    var cur=ttRead();
+    if(cur&&String(cur.workOrderId)===String(wo.id))return cur;
+    if(cur)window.TimeTrack.stop();
+    var active={travelerId:travelerId||"",workOrderId:String(wo.id),workOrderNumber:wo.number||"",chargeCode:(wo.chargeCode&&String(wo.chargeCode).trim())||"UNASSIGNED",productTag:wo.productTag||wo.instructionKind||"",instructionKind:wo.instructionKind||"",personId:String(session.personId||session.userId||""),personName:session.name||"",startedAt:Date.now(),source:"checkin"};
+    ttWrite(active);return active;
+  },
+  stop:function(){
+    var cur=ttRead();ttWrite(null);
+    if(!cur||!cur.startedAt)return null;
+    var endedAt=Date.now();var durationMs=Math.max(0,endedAt-Number(cur.startedAt));
+    if(durationMs<15000)return null;
+    try{
+      var base=JSON.parse(localStorage.getItem(TT_STORE)||"{}");
+      if(!Array.isArray(base.timeEntries))base.timeEntries=[];
+      base.timeEntries.push({id:"te_"+Math.random().toString(36).slice(2,10),personId:cur.personId,personName:cur.personName,workOrderId:cur.workOrderId,workOrderNumber:cur.workOrderNumber,chargeCode:cur.chargeCode||"UNASSIGNED",productTag:cur.productTag||"",instructionKind:cur.instructionKind||"",startedAt:new Date(cur.startedAt).toISOString(),endedAt:new Date(endedAt).toISOString(),durationMs:durationMs,source:"checkin"});
+      base.updatedAt=Date.now();
+      localStorage.setItem(TT_STORE,JSON.stringify(base));
+    }catch(e){}
+    return true;
+  },
+  current:function(){return ttRead();}
+};
+window.addEventListener("beforeunload",function(){try{window.TimeTrack.stop();}catch(e){}});
+window.addEventListener("pagehide",function(){try{window.TimeTrack.stop();}catch(e){}});
+
 var STORAGE_KEY="capacity-tracker.v1";
 var SESSION_KEY="capacity-tracker.session";
 var DEFAULT_CABLE=[
@@ -85,8 +118,17 @@ var DEFAULT_PRODUCT_ASMS=[
 {id:"asm_core4",name:"CORE 4 Assembly",productCode:"CORE 4",steps:["Traveler","BOM","Assemble","Test"],qa:["Pass"],media:[]},
 {id:"asm_kraken",name:"Kraken / POD",productCode:"Kraken POD",steps:["Config","Structure","Assemble","Test"],qa:["Pass"],media:[]}
 ];
-var state={data:{workCenters:[],people:[],workOrders:[],assemblies:[],cableOps:[],assemblyOps:[],travelers:[]},session:null,mode:"all",centerFilter:"",query:"",loginError:"",view:"list",activeTravelerId:null,activeOpId:null};
-function esc(s){return String(s==null?"":s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,""");}
+var state={data:{workCenters:[],people:[],workOrders:[],assemblies:[],cableOps:[],assemblyOps:[],travelers:[]},session:null,mode:"all",centerFilter:"",query:"",loginError:"",view:"list",activeTravelerId:null,activeOpId:null,forceChangePin:false};
+
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g,function(ch){
+    if(ch==="&")return "\x26amp;";
+    if(ch==="<")return "\x26lt;";
+    if(ch===">")return "\x26gt;";
+    if(ch==="\"")return "\x26quot;";
+    return "\x26#39;";
+  });
+}
 function uid(p){return p+"_"+Math.random().toString(36).slice(2,9);}
 function nowISO(){return new Date().toISOString();}
 function formatDur(ms){if(!ms)return "0m";var m=Math.round(ms/60000);if(m<60)return m+"m";return Math.floor(m/60)+"h "+(m%60)+"m";}
@@ -98,8 +140,41 @@ function centerName(id){var c=(state.data.workCenters||[]).find(function(x){retu
 function toast(m){var el=document.createElement("div");el.className="toast";el.textContent=m;(document.querySelector(".toasts")||document.body).appendChild(el);setTimeout(function(){el.remove();},2800);}
 function ensureOps(list,defaults){if(!list||!list.length)return JSON.parse(JSON.stringify(defaults)).map(function(o){o.steps=normalizeSteps(o.steps);return o;});return list.map(function(o){var d=defaults.find(function(x){return x.id===o.id;})||{};return Object.assign({},d,o,{steps:normalizeSteps(o.steps&&o.steps.length?o.steps:d.steps||[]),qa:o.qa&&o.qa.length?o.qa:(d.qa||[])});});}
 function taskStepsForWo(wo){var raw=wo&&Array.isArray(wo.taskSteps)&&wo.taskSteps.length?wo.taskSteps:["Complete task order"];return normalizeSteps(raw).map(function(s){return{text:s.text||"Task step",media:[],stepType:"assembly",projectedHours:0,workCenterId:"",done:false};});}
-function load(){try{var p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");state.data.workCenters=p.workCenters||[];state.data.people=p.people||[];state.data.workOrders=p.workOrders||[];var asms=(p.assemblies&&p.assemblies.length)?p.assemblies:DEFAULT_PRODUCT_ASMS;state.data.assemblies=asms.map(function(a){return Object.assign({},a,{steps:normalizeSteps(a.steps||[])});});state.data.cableOps=ensureOps(p.cableOps,DEFAULT_CABLE);state.data.assemblyOps=ensureOps(p.assemblyOps,DEFAULT_ASSEMBLY);state.data.travelers=p.travelers||[];}catch(e){}try{var s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null");if(s&&s.userId){state.session=s;var u=(state.data.people||[]).find(function(p){return String(p.id)===String(s.personId||s.userId);});if(u&&mustChangePin(u))state.forceChangePin=true;}}catch(e){}}
-function save(){var base={};try{base=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(e){}base.workCenters=state.data.workCenters;base.people=state.data.people;base.workOrders=state.data.workOrders;base.travelers=state.data.travelers;if(state.data.assemblies&&state.data.assemblies.length)base.assemblies=state.data.assemblies;if(state.data.cableOps&&state.data.cableOps.length)base.cableOps=state.data.cableOps;if(state.data.assemblyOps&&state.data.assemblyOps.length)base.assemblyOps=state.data.assemblyOps;base.updatedAt=Date.now();localStorage.setItem(STORAGE_KEY,JSON.stringify(base));}
+
+function load(){
+  try{
+    var p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+    state.data.workCenters=p.workCenters||[];
+    state.data.people=p.people||[];
+    state.data.workOrders=p.workOrders||[];
+    var asms=(p.assemblies&&p.assemblies.length)?p.assemblies:DEFAULT_PRODUCT_ASMS;
+    state.data.assemblies=asms.map(function(a){return Object.assign({},a,{steps:normalizeSteps(a.steps||[])});});
+    state.data.cableOps=ensureOps(p.cableOps,DEFAULT_CABLE);
+    state.data.assemblyOps=ensureOps(p.assemblyOps,DEFAULT_ASSEMBLY);
+    state.data.travelers=p.travelers||[];
+  }catch(e){}
+  try{
+    var s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null");
+    if(s&&s.userId){
+      state.session=s;
+      var u=(state.data.people||[]).find(function(p){return String(p.id)===String(s.personId||s.userId);});
+      if(u&&mustChangePin(u))state.forceChangePin=true;
+    }
+  }catch(e){}
+}
+function save(){
+  var base={};
+  try{base=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(e){}
+  base.workCenters=state.data.workCenters;
+  base.people=state.data.people;
+  base.workOrders=state.data.workOrders;
+  base.travelers=state.data.travelers;
+  if(state.data.assemblies&&state.data.assemblies.length)base.assemblies=state.data.assemblies;
+  if(state.data.cableOps&&state.data.cableOps.length)base.cableOps=state.data.cableOps;
+  if(state.data.assemblyOps&&state.data.assemblyOps.length)base.assemblyOps=state.data.assemblyOps;
+  base.updatedAt=Date.now();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(base));
+}
 function effectivePin(u){if(!u)return"";if(u.pin!=null&&String(u.pin)!=="")return String(u.pin);return"1111";}
 function mustChangePin(u){if(!u)return false;if(u.mustChangePin===false||u.mustChangePin==="false")return false;if(u.mustChangePin===true||u.mustChangePin==="true")return true;return effectivePin(u)==="1111";}
 function personByPin(pin){var entered=String(pin||"");return(state.data.people||[]).find(function(u){return effectivePin(u)===entered;});}
@@ -111,27 +186,155 @@ function opDef(kind,opId){return opLib(kind).find(function(o){return o.id===opId
 function asmProjectedHours(asm){return normalizeSteps(asm&&asm.steps).reduce(function(sum,s){return sum+(Number(s.projectedHours)||0);},0);}
 function applyWiHoursToOrder(wo){if(!wo||wo.instructionKind!=="product"||!wo.assemblyId)return;var asm=asmById(wo.assemblyId);if(!asm)return;var total=asmProjectedHours(asm);wo.hoursFromWi=true;wo.hours=total;wo.remainingHours=total;}
 function syncWo(t){var wo=woById(t.workOrderId);if(!wo)return;wo.travelerId=t.id;wo.travelerStatus=t.status;wo.hoursLogged=Math.round(((t.totalMs||0)/36e5)*100)/100;if(t.kind==="product"||t.kind==="task"){var done=(t.steps||[]).filter(function(s){return s.done;}).length;var total=(t.steps||[]).length||1;wo.travelerProgress=Math.round(done/total*100);var cur=(t.steps||[]).find(function(s){return!s.done;});wo.currentOp=cur?stepText(cur):(t.kind==="task"?"Task complete":"Complete");if(t.kind==="product")applyWiHoursToOrder(wo);}else{var ops=opLib(t.kind==="assembly"?"assembly":"cable");wo.travelerProgress=Math.round(((t.completedOps||[]).length/(ops.length||1))*100);wo.currentOp=t.currentOpName||"";}if(t.status==="open"&&wo.status==="queued")wo.status="in-progress";}
-function startClock(wo,t){if(window.TimeTrack&&state.session&&wo)TimeTrack.start(state.session,wo,t&&t.id);}
-function stopClock(){if(window.TimeTrack)TimeTrack.stop();}
-function startTraveler(wo){var t=(state.data.travelers||[]).find(function(x){return String(x.workOrderId)===String(wo.id)&&x.status==="open";});if(!t){var kind=wo.instructionKind||"cable";t={id:uid("tr"),kind:kind,assemblyId:wo.assemblyId||"",workOrderId:wo.id,workOrderNumber:wo.number,workOrderTitle:wo.title||"",workCenterId:wo.workCenterId,personId:state.session.personId||state.session.userId,personName:state.session.name,status:"open",startedAt:nowISO(),completedOps:[],opRecords:{},totalMs:0,currentOpName:"",productKey:wo.productTag||kind,taskNotes:wo.taskNotes||wo.notes||""};if(kind==="product"){var asm=asmById(wo.assemblyId);t.assemblyName=asm?asm.name:(wo.productTag||"Product");t.steps=normalizeSteps(asm?asm.steps:[]).map(function(s){return{text:s.text,media:s.media||[],stepType:s.stepType||"assembly",projectedHours:Number(s.projectedHours)||0,workCenterId:s.workCenterId||"",done:false};});applyWiHoursToOrder(wo);}else if(kind==="task"){t.assemblyName="Task Order";t.steps=taskStepsForWo(wo);}state.data.travelers.unshift(t);}syncWo(t);save();startClock(wo,t);state.activeTravelerId=t.id;state.activeOpId=null;state.view="run";toast("Checked in · "+wo.number+(wo.chargeCode?" · "+wo.chargeCode:""));render();}
+function startClock(wo,t){try{if(window.TimeTrack&&state.session&&wo)TimeTrack.start(state.session,wo,t&&t.id);}catch(e){}}
+function stopClock(){try{if(window.TimeTrack)TimeTrack.stop();}catch(e){}}
+
+function startTraveler(wo){
+  var t=(state.data.travelers||[]).find(function(x){return String(x.workOrderId)===String(wo.id)&&x.status==="open";});
+  if(!t){
+    var kind=wo.instructionKind||"cable";
+    t={id:uid("tr"),kind:kind,assemblyId:wo.assemblyId||"",workOrderId:wo.id,workOrderNumber:wo.number,workOrderTitle:wo.title||"",workCenterId:wo.workCenterId,personId:state.session.personId||state.session.userId,personName:state.session.name,status:"open",startedAt:nowISO(),completedOps:[],opRecords:{},totalMs:0,currentOpName:"",productKey:wo.productTag||kind,taskNotes:wo.taskNotes||wo.notes||""};
+    if(kind==="product"){var asm=asmById(wo.assemblyId);t.assemblyName=asm?asm.name:(wo.productTag||"Product");t.steps=normalizeSteps(asm?asm.steps:[]).map(function(s){return{text:s.text,media:s.media||[],stepType:s.stepType||"assembly",projectedHours:Number(s.projectedHours)||0,workCenterId:s.workCenterId||"",done:false};});applyWiHoursToOrder(wo);}
+    else if(kind==="task"){t.assemblyName="Task Order";t.steps=taskStepsForWo(wo);}
+    state.data.travelers.unshift(t);
+  }
+  syncWo(t);save();startClock(wo,t);state.activeTravelerId=t.id;state.activeOpId=null;state.view="run";toast("Checked in · "+wo.number+(wo.chargeCode?" · "+wo.chargeCode:""));render();
+}
 function myPersonId(){if(state.session&&state.session.personId)return state.session.personId;return"";}
-function filtered(){var list=(state.data.workOrders||[]).filter(function(o){return o.status!=="complete";});if(state.mode==="mine"){var pid=myPersonId();var name=(state.session&&state.session.name||"").toLowerCase();list=list.filter(function(o){if(pid&&(String(o.assignedTechId)===String(pid)||String(o.assignedQaId)===String(pid)))return true;if(name&&((o.assignedTechName||"").toLowerCase()===name||(o.assignedQaName||"").toLowerCase()===name))return true;return false;});}if(state.centerFilter)list=list.filter(function(o){return String(o.workCenterId)===String(state.centerFilter);});if(state.query){var q=state.query.toLowerCase();list=list.filter(function(o){return(o.number||"").toLowerCase().indexOf(q)>=0||(o.title||"").toLowerCase().indexOf(q)>=0||(o.chargeCode||"").toLowerCase().indexOf(q)>=0;});}return list;}
-function shell(inner,title){var who=state.session?esc(state.session.name)+" · "+esc(state.session.role||""):"";var live="";if(window.TimeTrack&&TimeTrack.current()){var c=TimeTrack.current();live=' <span class="pill open">Timing '+esc(c.workOrderNumber||"")+(c.chargeCode?" · "+esc(c.chargeCode):"")+"</span>";}return'<div class="top"><div class="top-row"><div class="brand"><div class="mark">WO</div><div><h1>Work Orders</h1><p>'+(title||"Check in · charge codes · time")+'</p></div></div>'+(state.session?'<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><span class="pill open">'+who+'</span>'+live+'<button class="btn small" data-action="logout">Sign out</button></div>':'')+'</div><nav class="tabs"><a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a><a class="tab" href="CapacityTracker.html#planning">Planning</a><a class="tab is-on" href="WorkOrders.html">Work Orders</a><a class="tab" href="WipBoard.html">WIP Board</a><a class="tab" href="WorkInstructions.html">Work Instructions</a><a class="tab" href="Analytics.html">Analytics</a><a class="tab" href="Settings.html">Settings</a></nav></div><div class="wrap">'+inner+'</div><div class="toasts"></div><dialog id="modal"></dialog>';}
-function renderLogin(){return'<div class="login-wrap"><div class="login-card card"><h2 style="margin:0 0 .5rem">Work Orders</h2><p style="color:var(--ink-soft);font-size:.9rem">PIN to check in. Time starts on Check in and stops on Exit.</p><form data-form="login" style="margin-top:1rem"><label>PIN<input class="field" name="pin" type="password" inputmode="numeric" required></label>'+(state.loginError?'<p style="color:var(--over)">'+esc(state.loginError)+'</p>':'')+'<button class="btn primary" type="submit" style="width:100%;margin-top:1rem">Sign in</button></form><p style="font-size:.8rem;color:var(--ink-soft);margin-top:1rem">Default PIN 1111 — you will be asked to change it.</p></div></div>';}
-function renderList(){var list=filtered();var openT=(state.data.travelers||[]).filter(function(t){return t.status==="open";});return shell('<div class="page-head"><div><h2>Work Orders</h2><p class="lede">Set WI type + charge code, then Check in. Time rolls to Analytics timecard.</p></div></div><div class="subtabs"><button class="subtab '+(state.mode==="all"?"is-on":"")+'" data-action="mode" data-mode="all">All open</button><button class="subtab '+(state.mode==="mine"?"is-on":"")+'" data-action="mode" data-mode="mine">My work orders</button></div>'+(openT.length?'<div class="card"><h3 style="margin:0 0 .65rem;font-size:.95rem">Resume</h3>'+openT.map(function(t){return'<div style="display:flex;justify-content:space-between;gap:.5rem;margin-bottom:.45rem;align-items:center"><div><b>'+esc(t.workOrderNumber)+'</b> · '+esc(kindLabel(t.kind))+'</div><button class="btn primary small" data-action="resume" data-id="'+t.id+'">Resume</button></div>';}).join("")+'</div>':'')+'<div class="card"><div class="filters"><input class="field" style="min-width:12rem" placeholder="Search…" value="'+esc(state.query)+'" data-bind="query"><select class="field" data-bind="centerFilter"><option value="">All centers</option>'+(state.data.workCenters||[]).map(function(c){return'<option value="'+c.id+'" '+(String(state.centerFilter)===String(c.id)?"selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select></div>'+(!list.length?'<div class="empty">No open work orders.</div>':'<div style="overflow-x:auto"><table><thead><tr><th>Job</th><th>Charge code</th><th>Center</th><th>WI</th><th>Progress</th><th></th></tr></thead><tbody>'+list.map(function(wo){return'<tr><td><b>'+esc(wo.number)+'</b>'+(wo.title?'<div style="font-size:.8rem;color:var(--ink-soft)">'+esc(wo.title)+'</div>':'')+'</td><td>'+(wo.chargeCode?'<span class="pill open">'+esc(wo.chargeCode)+'</span>':'<span class="pill">—</span>')+'</td><td>'+esc(centerName(wo.workCenterId))+'</td><td>'+(wo.productTag||wo.instructionKind?'<span class="pill open">'+esc(wo.productTag||kindLabel(wo.instructionKind))+'</span>':'<span class="pill">Not set</span>')+'</td><td>'+(wo.travelerProgress!=null?wo.travelerProgress+"%":"—")+'</td><td style="white-space:nowrap"><button class="btn small" data-action="tag-wo" data-id="'+wo.id+'">WI / Code</button> <button class="btn primary small" data-action="checkin" data-id="'+wo.id+'">Check in</button></td></tr>';}).join("")+'</tbody></table></div>')+'</div>',"Check in starts the clock");}
+function filtered(){
+  var list=(state.data.workOrders||[]).filter(function(o){return o.status!=="complete";});
+  if(state.mode==="mine"){var pid=myPersonId();var name=(state.session&&state.session.name||"").toLowerCase();list=list.filter(function(o){if(pid&&(String(o.assignedTechId)===String(pid)||String(o.assignedQaId)===String(pid)))return true;if(name&&((o.assignedTechName||"").toLowerCase()===name||(o.assignedQaName||"").toLowerCase()===name))return true;return false;});}
+  if(state.centerFilter)list=list.filter(function(o){return String(o.workCenterId)===String(state.centerFilter);});
+  if(state.query){var q=state.query.toLowerCase();list=list.filter(function(o){return(o.number||"").toLowerCase().indexOf(q)>=0||(o.title||"").toLowerCase().indexOf(q)>=0||(o.chargeCode||"").toLowerCase().indexOf(q)>=0;});}
+  return list;
+}
+function shell(inner,title){
+  var who=state.session?esc(state.session.name)+" · "+esc(state.session.role||""):"";
+  var live="";
+  try{if(window.TimeTrack&&TimeTrack.current()){var c=TimeTrack.current();live=' <span class="pill open">Timing '+esc(c.workOrderNumber||"")+(c.chargeCode?" · "+esc(c.chargeCode):"")+"</span>";}}catch(e){}
+  return'<div class="top"><div class="top-row"><div class="brand"><div class="mark">WO</div><div><h1>Work Orders</h1><p>'+(title||"Check in · charge codes · time")+'</p></div></div>'+(state.session?'<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><span class="pill open">'+who+'</span>'+live+'<button class="btn small" data-action="logout">Sign out</button></div>':'')+'</div><nav class="tabs"><a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a><a class="tab" href="CapacityTracker.html#planning">Planning</a><a class="tab is-on" href="WorkOrders.html">Work Orders</a><a class="tab" href="WipBoard.html">WIP Board</a><a class="tab" href="WorkInstructions.html">Work Instructions</a><a class="tab" href="Analytics.html">Analytics</a><a class="tab" href="Settings.html">Settings</a></nav></div><div class="wrap">'+inner+'</div><div class="toasts"></div><dialog id="modal"></dialog>';
+}
+function renderLogin(){return'<div class="login-wrap"><div class="login-card card"><h2 style="margin:0 0 .5rem">Work Orders</h2><p style="color:var(--ink-soft);font-size:.9rem">PIN to check in. Time starts on Check in and stops on Exit.</p><form data-form="login" style="margin-top:1rem"><label>PIN<input class="field" name="pin" type="password" inputmode="numeric" required></label>'+(state.loginError?'<p style="color:var(--over)">'+esc(state.loginError)+'</p>':'')+'<button class="btn primary" type="submit" style="width:100%;margin-top:1rem">Sign in</button></form><p style="font-size:.8rem;color:var(--ink-soft);margin-top:1rem">Default PIN 1111 — change it after first login.</p></div></div>';}
+function renderList(){
+  var list=filtered();
+  var openT=(state.data.travelers||[]).filter(function(t){return t.status==="open";});
+  return shell('<div class="page-head"><div><h2>Work Orders</h2><p class="lede">Set WI type + charge code, then Check in. Time rolls to Analytics timecard.</p></div></div><div class="subtabs"><button class="subtab '+(state.mode==="all"?"is-on":"")+'" data-action="mode" data-mode="all">All open</button><button class="subtab '+(state.mode==="mine"?"is-on":"")+'" data-action="mode" data-mode="mine">My work orders</button></div>'+(openT.length?'<div class="card"><h3 style="margin:0 0 .65rem;font-size:.95rem">Resume</h3>'+openT.map(function(t){return'<div style="display:flex;justify-content:space-between;gap:.5rem;margin-bottom:.45rem;align-items:center"><div><b>'+esc(t.workOrderNumber)+'</b> · '+esc(kindLabel(t.kind))+'</div><button class="btn primary small" data-action="resume" data-id="'+t.id+'">Resume</button></div>';}).join("")+'</div>':'')+'<div class="card"><div class="filters"><input class="field" style="min-width:12rem" placeholder="Search…" value="'+esc(state.query)+'" data-bind="query"><select class="field" data-bind="centerFilter"><option value="">All centers</option>'+(state.data.workCenters||[]).map(function(c){return'<option value="'+c.id+'" '+(String(state.centerFilter)===String(c.id)?"selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select></div>'+(!list.length?'<div class="empty">No open work orders. Create jobs in Capacity Tracker / Planning.</div>':'<div style="overflow-x:auto"><table><thead><tr><th>Job</th><th>Charge code</th><th>Center</th><th>WI</th><th>Progress</th><th></th></tr></thead><tbody>'+list.map(function(wo){return'<tr><td><b>'+esc(wo.number)+'</b>'+(wo.title?'<div style="font-size:.8rem;color:var(--ink-soft)">'+esc(wo.title)+'</div>':'')+'</td><td>'+(wo.chargeCode?'<span class="pill open">'+esc(wo.chargeCode)+'</span>':'<span class="pill">—</span>')+'</td><td>'+esc(centerName(wo.workCenterId))+'</td><td>'+(wo.productTag||wo.instructionKind?'<span class="pill open">'+esc(wo.productTag||kindLabel(wo.instructionKind))+'</span>':'<span class="pill">Not set</span>')+'</td><td>'+(wo.travelerProgress!=null?wo.travelerProgress+"%":"—")+'</td><td style="white-space:nowrap"><button class="btn small" data-action="tag-wo" data-id="'+wo.id+'">WI / Code</button> <button class="btn primary small" data-action="checkin" data-id="'+wo.id+'">Check in</button></td></tr>';}).join("")+'</tbody></table></div>')+'</div>',"Check in starts the clock");
+}
 function renderRun(){var t=trById(state.activeTravelerId);if(!t){state.view="list";return renderList();}if(t.kind==="product")return renderRunProduct(t);if(t.kind==="task")return renderRunTask(t);return renderRunGeneric(t);}
-function renderRunTask(t){var steps=t.steps||[];var done=steps.filter(function(s){return s.done;}).length;var notes=t.taskNotes||"";var wo=woById(t.workOrderId);return shell('<div class="traveler-bar"><div><div style="font-size:1.15rem;font-weight:650">'+esc(t.workOrderNumber)+' · Task Order</div><div style="opacity:.85;font-size:.85rem">'+(wo&&wo.chargeCode?esc(wo.chargeCode)+" · ":"")+formatDur(t.totalMs)+' · '+done+'/'+steps.length+'</div></div><div style="display:flex;gap:.5rem"><button class="btn small" style="background:#fff" data-action="exit-run">Exit</button>'+(t.status==="open"?'<button class="btn small success" data-action="finish-traveler">Mark complete</button>':'')+'</div></div><div class="card">'+(notes?'<div class="notes-box">'+esc(notes)+'</div>':'<p style="color:var(--ink-soft);margin:0">Task order — no BOM. Hours from work order.</p>')+'</div><div class="card"><h3 style="margin:0 0 .65rem">Checklist</h3><ul class="step-list">'+steps.map(function(s,i){return'<li class="step-item '+(s.done?"done":"")+'"><div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><div><span class="pill">'+(i+1)+'</span> '+esc(stepText(s))+(s.done&&s.by?'<div style="font-size:.78rem;color:var(--ink-soft)">Signed: '+esc(s.by)+'</div>':'')+'</div>'+(!s.done?'<button class="btn small primary" data-action="prod-step" data-i="'+i+'">Complete · PIN</button>':'<span class="pill pass">Done</span>')+'</div></li>';}).join("")+'</ul></div>',"Task Order");}
+function renderRunTask(t){var steps=t.steps||[];var done=steps.filter(function(s){return s.done;}).length;var notes=t.taskNotes||"";var wo=woById(t.workOrderId);return shell('<div class="traveler-bar"><div><div style="font-size:1.15rem;font-weight:650">'+esc(t.workOrderNumber)+' · Task Order</div><div style="opacity:.85;font-size:.85rem">'+(wo&&wo.chargeCode?esc(wo.chargeCode)+" · ":"")+formatDur(t.totalMs)+' · '+done+'/'+steps.length+'</div></div><div style="display:flex;gap:.5rem"><button class="btn small" style="background:#fff" data-action="exit-run">Exit</button>'+(t.status==="open"?'<button class="btn small success" data-action="finish-traveler">Mark complete</button>':'')+'</div></div><div class="card">'+(notes?'<div class="notes-box">'+esc(notes)+'</div>':'<p style="color:var(--ink-soft);margin:0">Task order — no BOM.</p>')+'</div><div class="card"><h3 style="margin:0 0 .65rem">Checklist</h3><ul class="step-list">'+steps.map(function(s,i){return'<li class="step-item '+(s.done?"done":"")+'"><div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><div><span class="pill">'+(i+1)+'</span> '+esc(stepText(s))+(s.done&&s.by?'<div style="font-size:.78rem;color:var(--ink-soft)">Signed: '+esc(s.by)+'</div>':'')+'</div>'+(!s.done?'<button class="btn small primary" data-action="prod-step" data-i="'+i+'">Complete · PIN</button>':'<span class="pill pass">Done</span>')+'</div></li>';}).join("")+'</ul></div>',"Task Order");}
 function renderRunGeneric(t){var kind=t.kind==="assembly"?"assembly":"cable";var ops=opLib(kind);var active=state.activeOpId?opDef(kind,state.activeOpId):null;var rec=active?(t.opRecords[active.id]||{}):{};var doneSet={};(t.completedOps||[]).forEach(function(id){doneSet[id]=true;});var body;if(!active){body='<div class="page-head"><h2>What are you doing?</h2><p class="lede">Pick an operation. Time is already running.</p></div><div class="op-grid">'+ops.map(function(op){var r=t.opRecords[op.id]||{};var passed=!!doneSet[op.id];return'<button type="button" class="op-btn '+(passed?"done":"")+'" data-action="pick-op" data-id="'+op.id+'"><h3 style="margin:0;font-size:.95rem">'+esc(op.name)+'</h3><p style="margin:.25rem 0 0;font-size:.78rem;color:var(--ink-soft)">'+(passed?"QA passed":(r.techDone?"Awaiting QA":(op.steps||[]).length+" steps"))+'</p></button>';}).join("")+'</div>';}else{var steps=normalizeSteps(active.steps);body='<button class="btn small" data-action="clear-op">&larr; All ops</button><div class="card" style="margin-top:.65rem"><h2 style="margin:0 0 .5rem">'+esc(active.name)+'</h2><ul class="step-list">'+steps.map(function(s,i){return'<li class="step-item"><span class="pill">'+(i+1)+'</span> '+esc(stepText(s))+'</li>';}).join("")+'</ul><div style="margin-top:.75rem"><b>QA</b><ul class="step-list">'+(active.qa||[]).map(function(q){return'<li class="step-item">'+esc(q)+'</li>';}).join("")+'</ul></div><div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem">'+(!rec.techDone?'<button class="btn primary big" data-action="tech-done" data-opid="'+active.id+'">Tech complete · PIN</button>':'<span class="pill pass">Tech done</span>')+(rec.techDone&&rec.qaResult!=="pass"?'<button class="btn success big" data-action="qa-done" data-opid="'+active.id+'" data-result="pass">QA Pass · PIN</button><button class="btn big" data-action="qa-done" data-opid="'+active.id+'" data-result="fail">QA Fail · PIN</button>':'')+'</div></div>';}var wo=woById(t.workOrderId);return shell('<div class="traveler-bar"><div><div style="font-size:1.15rem;font-weight:650">'+esc(t.workOrderNumber)+' · '+(kind==="assembly"?"Assembly/POD":"Cable")+'</div><div style="opacity:.85;font-size:.85rem">'+(wo&&wo.chargeCode?esc(wo.chargeCode)+" · ":"")+formatDur(t.totalMs)+'</div></div><div style="display:flex;gap:.5rem"><button class="btn small" style="background:#fff" data-action="exit-run">Exit</button>'+(t.status==="open"?'<button class="btn small success" data-action="finish-traveler">Mark complete</button>':'')+'</div></div>'+body,"Traveler");}
 function renderRunProduct(t){var steps=t.steps||[];var done=steps.filter(function(s){return s.done;}).length;var wo=woById(t.workOrderId);return shell('<div class="traveler-bar"><div><div style="font-size:1.15rem;font-weight:650">'+esc(t.workOrderNumber)+' · '+esc(t.assemblyName||"Product")+'</div><div style="opacity:.85;font-size:.85rem">'+(wo&&wo.chargeCode?esc(wo.chargeCode)+" · ":"")+done+'/'+steps.length+'</div></div><div style="display:flex;gap:.5rem"><button class="btn small" style="background:#fff" data-action="exit-run">Exit</button>'+(t.status==="open"?'<button class="btn small success" data-action="finish-traveler">Mark complete</button>':'')+'</div></div><div class="card"><ul class="step-list">'+steps.map(function(s,i){var st=s.stepType||"assembly";return'<li class="step-item '+(s.done?"done":"")+'"><div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><div><span class="pill">'+(i+1)+'</span> <span class="pill">'+esc(stepTypeLabel(st))+'</span> '+esc(stepText(s))+(s.done&&s.by?'<div style="font-size:.78rem;color:var(--ink-soft)">'+esc(s.by)+'</div>':'')+'</div>'+(!s.done?'<button class="btn small primary" data-action="prod-step" data-i="'+i+'">Complete · PIN</button>':'<span class="pill pass">Done</span>')+'</div></li>';}).join("")+'</ul></div>',"Product");}
 function renderChangePin(){return'<div class="login-wrap"><div class="login-card card"><h2 style="margin:0 0 .5rem">Set your PIN</h2><form data-form="change-pin" style="margin-top:1rem"><label>New PIN<input class="field" name="a" type="password" inputmode="numeric" required minlength="4"></label><label style="margin-top:.65rem">Confirm<input class="field" name="b" type="password" inputmode="numeric" required minlength="4"></label><button class="btn primary" type="submit" style="width:100%;margin-top:1rem">Save</button></form></div></div>';}
-function render(){if(!state.session){document.getElementById("app").innerHTML=renderLogin();wire();return;}if(state.forceChangePin){document.getElementById("app").innerHTML=renderChangePin();wire();return;}document.getElementById("app").innerHTML=state.view==="run"?renderRun():renderList();wire();}
+
+function render(){
+  try{
+    if(!state.session){document.getElementById("app").innerHTML=renderLogin();wire();return;}
+    if(state.forceChangePin){document.getElementById("app").innerHTML=renderChangePin();wire();return;}
+    document.getElementById("app").innerHTML=state.view==="run"?renderRun():renderList();wire();
+  }catch(err){
+    document.getElementById("app").innerHTML='<div class="wrap"><div class="err">Work Orders error: '+esc(err&&err.message?err.message:String(err))+'</div></div>';
+  }
+}
 function wire(){document.querySelectorAll("[data-bind]").forEach(function(el){el.addEventListener("input",function(e){state[e.target.getAttribute("data-bind")]=e.target.value;render();});el.addEventListener("change",function(e){state[e.target.getAttribute("data-bind")]=e.target.value;render();});});}
-document.addEventListener("click",function(e){var b=e.target.closest("[data-action]");if(!b)return;var a=b.getAttribute("data-action");if(a==="logout"){stopClock();state.session=null;sessionStorage.removeItem(SESSION_KEY);state.view="list";render();}if(a==="mode"){state.mode=b.getAttribute("data-mode");render();}if(a==="exit-run"){stopClock();state.view="list";state.activeOpId=null;render();}if(a==="resume"){state.activeTravelerId=b.getAttribute("data-id");state.activeOpId=null;state.view="run";var t=trById(state.activeTravelerId);var wo=t?woById(t.workOrderId):null;if(wo)startClock(wo,t);render();}if(a==="checkin"){var wo=woById(b.getAttribute("data-id"));if(!wo)return;if(!wo.instructionKind){toast("Set WI type first");openTag(wo);return;}if(wo.instructionKind==="product"&&!wo.assemblyId){toast("Pick product WI");openTag(wo);return;}startTraveler(wo);}if(a==="tag-wo"){var w2=woById(b.getAttribute("data-id"));if(w2)openTag(w2);}if(a==="close-modal"){var d=document.getElementById("modal");if(d)d.close();}if(a==="pick-kind"){state.tagKind=b.getAttribute("data-kind");if(state._tagPaint)state._tagPaint();}if(a==="pick-asm"){state.tagAssemblyId=b.getAttribute("data-id");if(state._tagPaint)state._tagPaint();}if(a==="save-tag")applyTagSave();if(a==="pick-op"){var tr=trById(state.activeTravelerId);if(!tr)return;state.activeOpId=b.getAttribute("data-id");if(!tr.opRecords[state.activeOpId])tr.opRecords[state.activeOpId]={};if(!tr.opRecords[state.activeOpId].startedAt)tr.opRecords[state.activeOpId].startedAt=nowISO();var def=opDef(tr.kind==="assembly"?"assembly":"cable",state.activeOpId);tr.currentOpName=def?def.name:state.activeOpId;syncWo(tr);save();render();}if(a==="clear-op"){state.activeOpId=null;render();}if(a==="tech-done")openPin("tech-done",{opId:b.getAttribute("data-opid")});if(a==="qa-done")openPin("qa-done",{opId:b.getAttribute("data-opid"),result:b.getAttribute("data-result")});if(a==="prod-step")openPin("prod-step",{i:Number(b.getAttribute("data-i"))});if(a==="finish-traveler"){var tx=trById(state.activeTravelerId);if(!tx)return;tx.status="complete";tx.completedAt=nowISO();var wx=woById(tx.workOrderId);if(wx){wx.travelerProgress=100;wx.currentOp="Complete";}syncWo(tx);save();stopClock();toast("Complete");state.view="list";render();}});
-function openTag(wo){state.tagWoId=wo.id;state.tagKind=wo.instructionKind||"cable";state.tagAssemblyId=wo.assemblyId||((state.data.assemblies[0]&&state.data.assemblies[0].id)||"");state.tagTaskNotes=wo.taskNotes||wo.notes||"";state.tagChargeCode=wo.chargeCode||"";var asms=state.data.assemblies||[];var dlg=document.getElementById("modal");function paint(){dlg.innerHTML='<div class="modal-card"><h3 style="margin:0">WI type & charge code — '+esc(wo.number)+'</h3><p style="color:var(--ink-soft);font-size:.88rem">Charge code is required for the Analytics timecard.</p><label style="margin:.75rem 0">Charge code<input class="field" data-bind-tag="chargeCode" value="'+esc(state.tagChargeCode)+'" placeholder="e.g. 1234.56 or JOB-CORE5"></label><div style="font-size:.8rem;font-weight:650;color:var(--ink-soft);margin:.5rem 0 .35rem">Instruction type</div><div class="choice-grid"><button type="button" class="choice '+(state.tagKind==="cable"?"is-on":"")+'" data-action="pick-kind" data-kind="cable"><b>Generic cable</b></button><button type="button" class="choice '+(state.tagKind==="assembly"?"is-on":"")+'" data-action="pick-kind" data-kind="assembly"><b>Generic assembly / POD</b></button><button type="button" class="choice '+(state.tagKind==="product"?"is-on":"")+'" data-action="pick-kind" data-kind="product"><b>Product / LRU WI</b></button><button type="button" class="choice '+(state.tagKind==="task"?"is-on":"")+'" data-action="pick-kind" data-kind="task"><b>Task Order</b></button></div>'+(state.tagKind==="product"?'<div style="margin-top:1rem" class="choice-grid">'+asms.map(function(a){return'<button type="button" class="choice '+(String(state.tagAssemblyId)===String(a.id)?"is-on":"")+'" data-action="pick-asm" data-id="'+a.id+'"><b>'+esc(a.name)+'</b></button>';}).join("")+'</div>':'')+(state.tagKind==="task"?'<label style="margin-top:1rem">Task notes<textarea class="field" rows="3" data-bind-tag="taskNotes">'+esc(state.tagTaskNotes)+'</textarea></label>':'')+'<div style="display:flex;justify-content:space-between;margin-top:1rem;gap:.5rem"><button type="button" class="btn" data-action="close-modal">Cancel</button><button type="button" class="btn primary" data-action="save-tag">Save</button></div></div>';dlg.querySelectorAll("[data-bind-tag]").forEach(function(inp){inp.addEventListener("input",function(ev){var k=ev.target.getAttribute("data-bind-tag");if(k==="chargeCode")state.tagChargeCode=ev.target.value;if(k==="taskNotes")state.tagTaskNotes=ev.target.value;});});}paint();dlg.showModal();state._tagPaint=paint;}
-function openPin(purpose,payload){state.pendingPin={purpose:purpose,payload:payload||{}};var dlg=document.getElementById("modal");dlg.innerHTML='<div class="modal-card"><h3 style="margin:0">Enter PIN</h3><form data-form="step-pin"><label style="display:block;margin:1rem 0">PIN<input class="field" name="pin" type="password" inputmode="numeric" required style="margin-top:.35rem"></label><div style="display:flex;justify-content:space-between;gap:.5rem"><button type="button" class="btn" data-action="close-modal">Cancel</button><button class="btn primary" type="submit">Confirm</button></div></form></div>';dlg.showModal();}
-function applyTagSave(){var wo=woById(state.tagWoId);if(!wo){toast("Not found");return;}var kind=state.tagKind||"cable";var cc=String(state.tagChargeCode||"").trim();if(!cc){toast("Enter a charge code");return;}wo.instructionKind=kind;wo.chargeCode=cc;if(kind==="product"){wo.assemblyId=String(state.tagAssemblyId||"");if(!wo.assemblyId){toast("Pick product WI");return;}var a=asmById(wo.assemblyId);wo.productTag=a?(a.productCode||a.name):"Product";wo.taskNotes="";applyWiHoursToOrder(wo);}else if(kind==="assembly"){wo.assemblyId="";wo.productTag="Assembly/POD";wo.hoursFromWi=false;wo.taskNotes="";}else if(kind==="task"){wo.assemblyId="";wo.productTag="Task Order";wo.hoursFromWi=false;wo.taskNotes=String(state.tagTaskNotes||"").trim();}else{wo.assemblyId="";wo.productTag="Cable";wo.hoursFromWi=false;wo.taskNotes="";}save();var d=document.getElementById("modal");if(d)d.close();toast(wo.number+" · "+wo.productTag+" · "+wo.chargeCode);render();}
-document.addEventListener("submit",function(e){var spin=e.target.closest("[data-form=step-pin]");if(spin){e.preventDefault();var fd=new FormData(spin);var u=personByPin(fd.get("pin"));if(!u){toast("Invalid PIN");return;}var pending=state.pendingPin||{};var tr=trById(state.activeTravelerId);if(!tr){toast("No traveler");return;}var d=document.getElementById("modal");if(d)d.close();if(pending.purpose==="tech-done"){var opId=pending.payload.opId;if(!tr.opRecords[opId])tr.opRecords[opId]={};var rec=tr.opRecords[opId];rec.techDone=true;rec.techBy=u.name;rec.techAt=nowISO();if(rec.startedAt){var ms=Date.now()-new Date(rec.startedAt).getTime();tr.totalMs=(tr.totalMs||0)+Math.max(0,ms);}}else if(pending.purpose==="qa-done"){var oid=pending.payload.opId;var result=pending.payload.result;if(!tr.opRecords[oid])tr.opRecords[oid]={};tr.opRecords[oid].qaResult=result;tr.opRecords[oid].qaBy=u.name;if(result==="pass"&&(tr.completedOps||[]).indexOf(oid)<0)tr.completedOps.push(oid);}else if(pending.purpose==="prod-step"){var i=pending.payload.i;if(tr.steps[i]){tr.steps[i].done=true;tr.steps[i].by=u.name;tr.steps[i].at=nowISO();}}state.pendingPin=null;syncWo(tr);save();toast("Signed by "+u.name);render();return;}var chg=e.target.closest("[data-form=change-pin]");if(chg){e.preventDefault();var fd2=new FormData(chg);var a=String(fd2.get("a")||"");var b=String(fd2.get("b")||"");if(a.length<4||a!==b||a==="1111"){toast("PIN issue");return;}var person=(state.data.people||[]).find(function(p){return String(p.id)===String(state.session.personId||state.session.userId);});if(!person)return;person.pin=a;person.mustChangePin=false;save();state.forceChangePin=false;toast("PIN updated");render();return;}var login=e.target.closest("[data-form=login]");if(login){e.preventDefault();var fd3=new FormData(login);var user=personByPin(fd3.get("pin"));if(!user){state.loginError="Invalid PIN (try 1111 first time)";render();return;}state.session={userId:user.id,name:user.name,role:user.role||"tech",personId:user.id};sessionStorage.setItem(SESSION_KEY,JSON.stringify(state.session));state.loginError="";state.forceChangePin=mustChangePin(user);toast("Signed in as "+user.name);render();}});
-load();if(!(state.data.workOrders||[]).length){fetch("capacity-data.json").then(function(r){return r.json();}).then(function(d){state.data.workCenters=d.workCenters||[];state.data.people=d.people||[];state.data.workOrders=d.workOrders||[];save();render();}).catch(function(){render();});}else render();
+
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-action]");if(!b)return;
+  var a=b.getAttribute("data-action");
+  if(a==="logout"){stopClock();state.session=null;sessionStorage.removeItem(SESSION_KEY);state.view="list";render();}
+  if(a==="mode"){state.mode=b.getAttribute("data-mode");render();}
+  if(a==="exit-run"){stopClock();state.view="list";state.activeOpId=null;render();}
+  if(a==="resume"){state.activeTravelerId=b.getAttribute("data-id");state.activeOpId=null;state.view="run";var t=trById(state.activeTravelerId);var wo=t?woById(t.workOrderId):null;if(wo)startClock(wo,t);render();}
+  if(a==="checkin"){var wo=woById(b.getAttribute("data-id"));if(!wo)return;if(!wo.instructionKind){toast("Set WI type first");openTag(wo);return;}if(wo.instructionKind==="product"&&!wo.assemblyId){toast("Pick product WI");openTag(wo);return;}startTraveler(wo);}
+  if(a==="tag-wo"){var w2=woById(b.getAttribute("data-id"));if(w2)openTag(w2);}
+  if(a==="close-modal"){var d=document.getElementById("modal");if(d)d.close();}
+  if(a==="pick-kind"){state.tagKind=b.getAttribute("data-kind");if(state._tagPaint)state._tagPaint();}
+  if(a==="pick-asm"){state.tagAssemblyId=b.getAttribute("data-id");if(state._tagPaint)state._tagPaint();}
+  if(a==="save-tag")applyTagSave();
+  if(a==="pick-op"){var tr=trById(state.activeTravelerId);if(!tr)return;state.activeOpId=b.getAttribute("data-id");if(!tr.opRecords[state.activeOpId])tr.opRecords[state.activeOpId]={};if(!tr.opRecords[state.activeOpId].startedAt)tr.opRecords[state.activeOpId].startedAt=nowISO();var def=opDef(tr.kind==="assembly"?"assembly":"cable",state.activeOpId);tr.currentOpName=def?def.name:state.activeOpId;syncWo(tr);save();render();}
+  if(a==="clear-op"){state.activeOpId=null;render();}
+  if(a==="tech-done")openPin("tech-done",{opId:b.getAttribute("data-opid")});
+  if(a==="qa-done")openPin("qa-done",{opId:b.getAttribute("data-opid"),result:b.getAttribute("data-result")});
+  if(a==="prod-step")openPin("prod-step",{i:Number(b.getAttribute("data-i"))});
+  if(a==="finish-traveler"){var tx=trById(state.activeTravelerId);if(!tx)return;tx.status="complete";tx.completedAt=nowISO();var wx=woById(tx.workOrderId);if(wx){wx.travelerProgress=100;wx.currentOp="Complete";}syncWo(tx);save();stopClock();toast("Complete");state.view="list";render();}
+});
+
+function openTag(wo){
+  state.tagWoId=wo.id;state.tagKind=wo.instructionKind||"cable";
+  state.tagAssemblyId=wo.assemblyId||((state.data.assemblies[0]&&state.data.assemblies[0].id)||"");
+  state.tagTaskNotes=wo.taskNotes||wo.notes||"";state.tagChargeCode=wo.chargeCode||"";
+  var asms=state.data.assemblies||[];var dlg=document.getElementById("modal");
+  function paint(){
+    dlg.innerHTML='<div class="modal-card"><h3 style="margin:0">WI type and charge code — '+esc(wo.number)+'</h3><p style="color:var(--ink-soft);font-size:.88rem">Charge code is used on the Analytics timecard.</p><label style="margin:.75rem 0">Charge code<input class="field" data-bind-tag="chargeCode" value="'+esc(state.tagChargeCode)+'" placeholder="e.g. 1234.56 or JOB-CORE5"></label><div style="font-size:.8rem;font-weight:650;color:var(--ink-soft);margin:.5rem 0 .35rem">Instruction type</div><div class="choice-grid"><button type="button" class="choice '+(state.tagKind==="cable"?"is-on":"")+'" data-action="pick-kind" data-kind="cable"><b>Generic cable</b></button><button type="button" class="choice '+(state.tagKind==="assembly"?"is-on":"")+'" data-action="pick-kind" data-kind="assembly"><b>Generic assembly / POD</b></button><button type="button" class="choice '+(state.tagKind==="product"?"is-on":"")+'" data-action="pick-kind" data-kind="product"><b>Product / LRU WI</b></button><button type="button" class="choice '+(state.tagKind==="task"?"is-on":"")+'" data-action="pick-kind" data-kind="task"><b>Task Order</b></button></div>'+(state.tagKind==="product"?'<div style="margin-top:1rem" class="choice-grid">'+asms.map(function(a){return'<button type="button" class="choice '+(String(state.tagAssemblyId)===String(a.id)?"is-on":"")+'" data-action="pick-asm" data-id="'+a.id+'"><b>'+esc(a.name)+'</b></button>';}).join("")+'</div>':'')+(state.tagKind==="task"?'<label style="margin-top:1rem">Task notes<textarea class="field" rows="3" data-bind-tag="taskNotes">'+esc(state.tagTaskNotes)+'</textarea></label>':'')+'<div style="display:flex;justify-content:space-between;margin-top:1rem;gap:.5rem"><button type="button" class="btn" data-action="close-modal">Cancel</button><button type="button" class="btn primary" data-action="save-tag">Save</button></div></div>';
+    dlg.querySelectorAll("[data-bind-tag]").forEach(function(inp){inp.addEventListener("input",function(ev){var k=ev.target.getAttribute("data-bind-tag");if(k==="chargeCode")state.tagChargeCode=ev.target.value;if(k==="taskNotes")state.tagTaskNotes=ev.target.value;});});
+  }
+  paint();dlg.showModal();state._tagPaint=paint;
+}
+function openPin(purpose,payload){
+  state.pendingPin={purpose:purpose,payload:payload||{}};
+  var dlg=document.getElementById("modal");
+  dlg.innerHTML='<div class="modal-card"><h3 style="margin:0">Enter PIN</h3><form data-form="step-pin"><label style="display:block;margin:1rem 0">PIN<input class="field" name="pin" type="password" inputmode="numeric" required style="margin-top:.35rem"></label><div style="display:flex;justify-content:space-between;gap:.5rem"><button type="button" class="btn" data-action="close-modal">Cancel</button><button class="btn primary" type="submit">Confirm</button></div></form></div>';
+  dlg.showModal();
+}
+function applyTagSave(){
+  var wo=woById(state.tagWoId);if(!wo){toast("Not found");return;}
+  var kind=state.tagKind||"cable";var cc=String(state.tagChargeCode||"").trim();
+  if(!cc){toast("Enter a charge code");return;}
+  wo.instructionKind=kind;wo.chargeCode=cc;
+  if(kind==="product"){wo.assemblyId=String(state.tagAssemblyId||"");if(!wo.assemblyId){toast("Pick product WI");return;}var a=asmById(wo.assemblyId);wo.productTag=a?(a.productCode||a.name):"Product";wo.taskNotes="";applyWiHoursToOrder(wo);}
+  else if(kind==="assembly"){wo.assemblyId="";wo.productTag="Assembly/POD";wo.hoursFromWi=false;wo.taskNotes="";}
+  else if(kind==="task"){wo.assemblyId="";wo.productTag="Task Order";wo.hoursFromWi=false;wo.taskNotes=String(state.tagTaskNotes||"").trim();}
+  else{wo.assemblyId="";wo.productTag="Cable";wo.hoursFromWi=false;wo.taskNotes="";}
+  save();var d=document.getElementById("modal");if(d)d.close();toast(wo.number+" · "+wo.productTag+" · "+wo.chargeCode);render();
+}
+
+document.addEventListener("submit",function(e){
+  var spin=e.target.closest("[data-form=step-pin]");
+  if(spin){
+    e.preventDefault();var fd=new FormData(spin);var u=personByPin(fd.get("pin"));
+    if(!u){toast("Invalid PIN");return;}
+    var pending=state.pendingPin||{};var tr=trById(state.activeTravelerId);
+    if(!tr){toast("No traveler");return;}
+    var d=document.getElementById("modal");if(d)d.close();
+    if(pending.purpose==="tech-done"){var opId=pending.payload.opId;if(!tr.opRecords[opId])tr.opRecords[opId]={};var rec=tr.opRecords[opId];rec.techDone=true;rec.techBy=u.name;rec.techAt=nowISO();if(rec.startedAt){var ms=Date.now()-new Date(rec.startedAt).getTime();tr.totalMs=(tr.totalMs||0)+Math.max(0,ms);}}
+    else if(pending.purpose==="qa-done"){var oid=pending.payload.opId;var result=pending.payload.result;if(!tr.opRecords[oid])tr.opRecords[oid]={};tr.opRecords[oid].qaResult=result;tr.opRecords[oid].qaBy=u.name;if(result==="pass"&&(tr.completedOps||[]).indexOf(oid)<0)tr.completedOps.push(oid);}
+    else if(pending.purpose==="prod-step"){var i=pending.payload.i;if(tr.steps[i]){tr.steps[i].done=true;tr.steps[i].by=u.name;tr.steps[i].at=nowISO();}}
+    state.pendingPin=null;syncWo(tr);save();toast("Signed by "+u.name);render();return;
+  }
+  var chg=e.target.closest("[data-form=change-pin]");
+  if(chg){
+    e.preventDefault();var fd2=new FormData(chg);var a=String(fd2.get("a")||"");var b=String(fd2.get("b")||"");
+    if(a.length<4||a!==b||a==="1111"){toast("PIN issue");return;}
+    var person=(state.data.people||[]).find(function(p){return String(p.id)===String(state.session.personId||state.session.userId);});
+    if(!person)return;person.pin=a;person.mustChangePin=false;save();state.forceChangePin=false;toast("PIN updated");render();return;
+  }
+  var login=e.target.closest("[data-form=login]");
+  if(login){
+    e.preventDefault();var fd3=new FormData(login);var user=personByPin(fd3.get("pin"));
+    if(!user){state.loginError="Invalid PIN (try 1111 first time)";render();return;}
+    state.session={userId:user.id,name:user.name,role:user.role||"tech",personId:user.id};
+    sessionStorage.setItem(SESSION_KEY,JSON.stringify(state.session));
+    state.loginError="";state.forceChangePin=mustChangePin(user);toast("Signed in as "+user.name);render();
+  }
+});
+
+try{
+  load();
+  render();
+  if(!(state.data.workOrders||[]).length){
+    var done=false;
+    function finishFetch(d){
+      if(done)return;done=true;
+      if(d){state.data.workCenters=d.workCenters||state.data.workCenters;state.data.people=d.people||state.data.people;state.data.workOrders=d.workOrders||[];save();}
+      render();
+    }
+    setTimeout(function(){finishFetch(null);},2500);
+    try{
+      fetch("capacity-data.json").then(function(r){return r.json();}).then(function(d){finishFetch(d);}).catch(function(){finishFetch(null);});
+    }catch(e){finishFetch(null);}
+  }
+}catch(bootErr){
+  document.getElementById("app").innerHTML='<div class="wrap"><div class="err">Boot error: '+String(bootErr&&bootErr.message?bootErr.message:bootErr)+'</div></div>';
+}
 })();
 </script>
 </body>
