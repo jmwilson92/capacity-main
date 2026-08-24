@@ -50,7 +50,16 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
     <div class="brand"><div class="mark">AN</div><div><h1>Analytics</h1><p>Timecard · charge codes · capacity</p></div></div>
     <div id="suite-auth-host"></div>
   </div>
-  <div class="tabs" id="tabs"></div>
+  <nav class="tabs" id="tabs">
+    <a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>
+    <a class="tab" href="CapacityTracker.html#planning">Planning</a>
+    <a class="tab" href="WorkOrders.html">Work Orders</a>
+    <a class="tab" href="WipBoard.html">WIP Board</a>
+    <a class="tab" href="WorkInstructions.html">Work Instructions</a>
+    <a class="tab" href="DowntimeLogger.html">Downtime</a>
+    <a class="tab is-on" href="Analytics.html">Analytics</a>
+    <a class="tab" href="Settings.html">Settings</a>
+  </nav>
 </div>
 <div class="wrap" id="main">Loading...</div>
 <script src="nav.js"></script>
@@ -171,8 +180,6 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 
   function render() {
     try {
-      document.getElementById("tabs").innerHTML =
-        (window.SuiteNav && SuiteNav.html("Analytics")) || "";
       if (window.SuiteNav) SuiteNav.paintAuth();
 
       var d = load();
