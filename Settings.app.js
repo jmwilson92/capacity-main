@@ -1,4 +1,4 @@
-/* Settings page logic */
+/* Settings page logic - keep external to Settings.html */
 (function () {
   var STORAGE_KEY = "capacity-tracker.v1";
   var COLORS = ["#1f6f6a", "#1d4e89", "#8a3b12", "#6b4c9a", "#3d5a40", "#9a3412", "#0f4c5c", "#7a2f4b"];
@@ -16,25 +16,25 @@
     var t = String(s == null ? "" : s);
     var out = "";
     for (var i = 0; i < t.length; i++) {
-      var c = t.charAt(i);
-      if (c === "&") out += "&" + "amp;";
-      else if (c === "<") out += "&" + "lt;";
-      else if (c === ">") out += "&" + "gt;";
-      else if (c === '"') out += "&" + "quot;";
-      else if (c === "'") out += "&" + "#39;";
-      else out += c;
+      var ch = t.charAt(i);
+      if (ch === "&") out += "&" + "amp;";
+      else if (ch === "<") out += "&" + "lt;";
+      else if (ch === ">") out += "&" + "gt;";
+      else if (ch === "\"") out += "&" + "quot;";
+      else if (ch === "'") out += "&" + "#39;";
+      else out += ch;
     }
     return out;
   }
 
-  function uid(p) {
-    return p + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
+  function uid(prefix) {
+    return prefix + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
   }
 
-  function toast(m) {
+  function toast(msg) {
     var el = document.createElement("div");
     el.className = "toast";
-    el.textContent = m;
+    el.textContent = msg;
     var host = document.getElementById("toasts");
     if (host) host.appendChild(el);
     setTimeout(function () {
@@ -56,7 +56,7 @@
   }
 
   function normRole(r) {
-    var s = String(r || "tech").toLowerCase().replace(/\s+/g, "");
+    var s = String(r || "tech").toLowerCase().split(" ").join("");
     if (s === "floortech" || s === "technician") return "tech";
     if (s === "quality" || s === "inspector") return "qa";
     if (s === "mfg" || s === "mfgengineer" || s === "engineer" || s === "me") return "mfgeng";
@@ -74,28 +74,30 @@
   function roleOpts(sel) {
     if (window.SuiteRoles && SuiteRoles.optionsHtml) return SuiteRoles.optionsHtml(sel);
     var cur = normRole(sel);
-    return ROLE_ORDER.map(function (r) {
-      var selected = r === cur ? " selected" : "";
-      return "<option value='" + r + "'" + selected + ">" + ROLE_LABELS[r] + "</option>";
-    }).join("");
+    var parts = [];
+    for (var i = 0; i < ROLE_ORDER.length; i++) {
+      var r = ROLE_ORDER[i];
+      var selAttr = r === cur ? " selected" : "";
+      parts.push("<option value=" + r + selAttr + ">" + ROLE_LABELS[r] + "</option>");
+    }
+    return parts.join("");
   }
 
   function paintNav() {
     try {
       var tabs = document.getElementById("tabs");
-      if (tabs) {
-        if (window.SuiteNav && SuiteNav.html) {
-          tabs.innerHTML = SuiteNav.html("Settings");
-        } else {
-          tabs.innerHTML =
-            '<a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>' +
-            '<a class="tab" href="CapacityTracker.html#planning">Planning</a>' +
-            '<a class="tab" href="WorkOrders.html">Work Orders</a>' +
-            '<a class="tab" href="WipBoard.html">WIP Board</a>' +
-            '<a class="tab" href="WorkInstructions.html">Work Instructions</a>' +
-            '<a class="tab" href="Analytics.html">Analytics</a>' +
-            '<a class="tab is-on" href="Settings.html">Settings</a>';
-        }
+      if (!tabs) return;
+      if (window.SuiteNav && SuiteNav.html) {
+        tabs.innerHTML = SuiteNav.html("Settings");
+      } else {
+        tabs.innerHTML =
+          "<a class=tab href=CapacityTracker.html#dashboard>Work Centers</a>" +
+          "<a class=tab href=CapacityTracker.html#planning>Planning</a>" +
+          "<a class=tab href=WorkOrders.html>Work Orders</a>" +
+          "<a class=tab href=WipBoard.html>WIP Board</a>" +
+          "<a class=tab href=WorkInstructions.html>Work Instructions</a>" +
+          "<a class=tab href=Analytics.html>Analytics</a>" +
+          "<a class='tab is-on' href=Settings.html>Settings</a>";
       }
       if (window.SuiteNav && SuiteNav.paintAuth) SuiteNav.paintAuth();
     } catch (e) {}
@@ -103,7 +105,9 @@
 
   function showError(msg) {
     var main = document.getElementById("main");
-    if (main) main.innerHTML = '<div class="err">Settings error: ' + esc(msg) + "</div>";
+    if (main) {
+      main.innerHTML = "<div class=err>Settings error: " + esc(msg) + "</div>";
+    }
   }
 
   function render() {
@@ -116,7 +120,7 @@
       });
       var html = "";
 
-      html += '<div class="card help"><b>Roles</b><br>';
+      html += "<div class='card help'><b>Roles</b><br>";
       html += "Floor Tech - only assigned jobs; tech step sign-off; downtime create; analytics view.<br>";
       html += "QA - only assigned jobs; QA step sign-off; downtime create; analytics view.<br>";
       html += "Mfg Eng - edit work instructions; resolve downtime; set WI type.<br>";
@@ -124,82 +128,57 @@
       html += "Manager - create work orders; charge codes; assign; downtime view.<br>";
       html += "Admin - everything.</div>";
 
-      html += '<div class="page-head"><div><h2>Work centers</h2>';
-      html += '<p class="lede">Ordering, Kitting, QA, production cells.</p></div>';
-      html += '<button type="button" class="btn primary" data-action="new-wc">New work center</button></div>';
+      html += "<div class='page-head'><div><h2>Work centers</h2>";
+      html += "<p class=lede>Ordering, Kitting, QA, production cells.</p></div>";
+      html += "<button type=button class='btn primary' data-action=new-wc>New work center</button></div>";
 
       if (!centers.length) {
-        html += '<div class="card"><p class="help" style="margin:0">No work centers yet. Click New work center.</p></div>';
+        html += "<div class=card><p class=help style='margin:0'>No work centers yet. Click New work center.</p></div>";
       } else {
-        centers.forEach(function (c) {
-          html +=
-            '<div class="wc-row"><div><span class="dot" style="background:' +
-            esc(c.color || "#1f6f6a") +
-            '"></span><b>' +
-            esc(c.name) +
-            "</b>";
-          if (c.kind) html += ' <span class="pill">' + esc(c.kind) + "</span>";
-          html +=
-            '</div><div><button type="button" class="btn small" data-action="edit-wc" data-id="' +
-            esc(c.id) +
-            '">Edit</button> ';
-          html +=
-            '<button type="button" class="btn small danger" data-action="del-wc" data-id="' +
-            esc(c.id) +
-            '">Delete</button></div></div>';
-        });
+        for (var ci = 0; ci < centers.length; ci++) {
+          var c = centers[ci];
+          html += "<div class=wc-row><div><span class=dot style='background:" + esc(c.color || "#1f6f6a") + "'></span><b>" + esc(c.name) + "</b>";
+          if (c.kind) html += " <span class=pill>" + esc(c.kind) + "</span>";
+          html += "</div><div>";
+          html += "<button type=button class='btn small' data-action=edit-wc data-id=" + esc(c.id) + ">Edit</button> ";
+          html += "<button type=button class='btn small danger' data-action=del-wc data-id=" + esc(c.id) + ">Delete</button>";
+          html += "</div></div>";
+        }
       }
 
-      html += '<div class="page-head" style="margin-top:1.75rem"><div><h2>Employees and roles</h2>';
-      html +=
-        '<p class="lede">Assign Floor Tech, QA, Mfg Eng, Supervisor, Manager, or Admin. PIN default 1111.</p></div>';
-      html += '<button type="button" class="btn primary" data-action="new-emp">Add employee</button></div>';
+      html += "<div class='page-head' style='margin-top:1.75rem'><div><h2>Employees and roles</h2>";
+      html += "<p class=lede>Assign Floor Tech, QA, Mfg Eng, Supervisor, Manager, or Admin. PIN default 1111.</p></div>";
+      html += "<button type=button class='btn primary' data-action=new-emp>Add employee</button></div>";
 
       if (!people.length) {
-        html +=
-          '<div class="card"><p class="help" style="margin:0">No people yet. Add employees here or in Capacity Tracker roster.</p></div>';
+        html += "<div class=card><p class=help style='margin:0'>No people yet. Add employees here or in Capacity Tracker roster.</p></div>";
       } else {
-        people.forEach(function (p) {
-          html +=
-            '<div class="emp-row"><div><b>' +
-            esc(p.name) +
-            '</b> <span class="pill">' +
-            esc(roleLabel(p.role)) +
-            "</span>";
+        for (var pi = 0; pi < people.length; pi++) {
+          var p = people[pi];
+          html += "<div class=emp-row><div><b>" + esc(p.name) + "</b> <span class=pill>" + esc(roleLabel(p.role)) + "</span>";
           if (p.workCenterId) {
-            var wc = centers.find(function (c) {
-              return String(c.id) === String(p.workCenterId);
-            });
-            html += ' <span class="help">' + esc(wc ? wc.name : "") + "</span>";
+            var wc = null;
+            for (var wi = 0; wi < centers.length; wi++) {
+              if (String(centers[wi].id) === String(p.workCenterId)) {
+                wc = centers[wi];
+                break;
+              }
+            }
+            html += " <span class=help>" + esc(wc ? wc.name : "") + "</span>";
           }
-          html += '</div><div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">';
-          html +=
-            '<select class="field" style="width:auto;min-width:9rem" data-role-id="' +
-            esc(p.id) +
-            '">' +
-            roleOpts(p.role || "tech") +
-            "</select>";
-          html +=
-            '<button type="button" class="btn small" data-action="reset-pin" data-id="' +
-            esc(p.id) +
-            '">Reset PIN 1111</button>';
-          html +=
-            '<button type="button" class="btn small danger" data-action="del-emp" data-id="' +
-            esc(p.id) +
-            '">Remove</button></div></div>';
-        });
+          html += "</div><div style='display:flex;gap:.35rem;flex-wrap:wrap;align-items:center'>";
+          html += "<select class=field style='width:auto;min-width:9rem' data-role-id=" + esc(p.id) + ">" + roleOpts(p.role || "tech") + "</select>";
+          html += "<button type=button class='btn small' data-action=reset-pin data-id=" + esc(p.id) + ">Reset PIN 1111</button>";
+          html += "<button type=button class='btn small danger' data-action=del-emp data-id=" + esc(p.id) + ">Remove</button>";
+          html += "</div></div>";
+        }
       }
 
-      html += '<h2 style="margin-top:1.75rem">More</h2><div class="grid" style="margin-top:.75rem">';
-      html +=
-        '<a class="card" href="CapacityTracker.html#people"><h3 style="margin:0 0 .35rem">Full roster</h3>';
-      html += '<p class="help" style="margin:0">Hours, PTO, center assign in Capacity Tracker.</p></a>';
-      html +=
-        '<a class="card" href="SkillsMatrix.html"><h3 style="margin:0 0 .35rem">Skills matrix</h3>';
-      html += '<p class="help" style="margin:0">Training levels.</p></a>';
-      html +=
-        '<a class="card" href="CapacityTracker.html#settings"><h3 style="margin:0 0 .35rem">Capacity settings</h3>';
-      html += '<p class="help" style="margin:0">Planning horizon, storage.</p></a></div>';
+      html += "<h2 style='margin-top:1.75rem'>More</h2><div class=grid style='margin-top:.75rem'>";
+      html += "<a class=card href=CapacityTracker.html#people><h3 style='margin:0 0 .35rem'>Full roster</h3><p class=help style='margin:0'>Hours, PTO, center assign in Capacity Tracker.</p></a>";
+      html += "<a class=card href=SkillsMatrix.html><h3 style='margin:0 0 .35rem'>Skills matrix</h3><p class=help style='margin:0'>Training levels.</p></a>";
+      html += "<a class=card href=CapacityTracker.html#settings><h3 style='margin:0 0 .35rem'>Capacity settings</h3><p class=help style='margin:0'>Planning horizon, storage.</p></a>";
+      html += "</div>";
 
       document.getElementById("main").innerHTML = html;
     } catch (err) {
@@ -210,11 +189,15 @@
   function openWc(id) {
     var d = load();
     var centers = d.workCenters || [];
-    var existing = id
-      ? centers.find(function (c) {
-          return String(c.id) === String(id);
-        })
-      : null;
+    var existing = null;
+    if (id) {
+      for (var i = 0; i < centers.length; i++) {
+        if (String(centers[i].id) === String(id)) {
+          existing = centers[i];
+          break;
+        }
+      }
+    }
     var c = existing || {
       name: "",
       notes: "",
@@ -222,37 +205,25 @@
       kind: ""
     };
     var dlg = document.getElementById("modal");
-    var taClose = "</" + "textarea>";
-    dlg.innerHTML =
-      '<form class="modal-card" data-form="wc" data-id="' +
-      esc(existing ? existing.id : "") +
-      '"><h3 style="margin:0">' +
-      (existing ? "Edit" : "New") +
-      ' work center</h3><div class="form-grid">' +
-      '<label class="span-2">Name<input class="field" name="name" required value="' +
-      esc(c.name) +
-      '"></label>' +
-      '<label>Kind<select class="field" name="kind">' +
-      '<option value="">General</option>' +
-      '<option value="ordering"' +
-      (c.kind === "ordering" ? " selected" : "") +
-      ">Ordering</option>' +
-      '<option value="kitting"' +
-      (c.kind === "kitting" ? " selected" : "") +
-      ">Kitting</option>' +
-      '<option value="qa"' +
-      (c.kind === "qa" ? " selected" : "") +
-      ">QA</option></select></label>' +
-      '<label>Color<input class="field" type="color" name="color" value="' +
-      esc(c.color || "#1f6f6a") +
-      '"></label>' +
-      '<label class="span-2">Notes<textarea class="field" name="notes" rows="2">' +
-      esc(c.notes || "") +
-      taClose +
-      "</label></div>" +
-      '<div style="display:flex;justify-content:space-between;margin-top:.5rem">' +
-      '<button type="button" class="btn" data-action="close">Cancel</button>' +
-      '<button type="submit" class="btn primary">Save</button></div></form>';
+    var html = "";
+    html += "<form class=modal-card data-form=wc data-id=" + esc(existing ? existing.id : "") + ">";
+    html += "<h3 style='margin:0'>" + (existing ? "Edit" : "New") + " work center</h3>";
+    html += "<div class=form-grid>";
+    html += "<label class=span-2>Name<input class=field name=name required value=" + esc(c.name) + "></label>";
+    html += "<label>Kind<select class=field name=kind>";
+    html += "<option value=>General</option>";
+    html += "<option value=ordering" + (c.kind === "ordering" ? " selected" : "") + ">Ordering</option>";
+    html += "<option value=kitting" + (c.kind === "kitting" ? " selected" : "") + ">Kitting</option>";
+    html += "<option value=qa" + (c.kind === "qa" ? " selected" : "") + ">QA</option>";
+    html += "</select></label>";
+    html += "<label>Color<input class=field type=color name=color value=" + esc(c.color || "#1f6f6a") + "></label>";
+    html += "<label class=span-2>Notes<textarea class=field name=notes rows=2>" + esc(c.notes || "") + "</textarea></label>";
+    html += "</div>";
+    html += "<div style='display:flex;justify-content:space-between;margin-top:.5rem'>";
+    html += "<button type=button class=btn data-action=close>Cancel</button>";
+    html += "<button type=submit class='btn primary'>Save</button>";
+    html += "</div></form>";
+    dlg.innerHTML = html;
     if (dlg.showModal) dlg.showModal();
   }
 
@@ -260,24 +231,25 @@
     var d = load();
     var centers = d.workCenters || [];
     var dlg = document.getElementById("modal");
-    dlg.innerHTML =
-      '<form class="modal-card" data-form="emp"><h3 style="margin:0">Add employee</h3><div class="form-grid">' +
-      '<label class="span-2">Name<input class="field" name="name" required></label>' +
-      '<label>Role<select class="field" name="role">' +
-      roleOpts("tech") +
-      "</select></label>" +
-      '<label>Work center<select class="field" name="workCenterId"><option value="">Unassigned</option>' +
-      centers
-        .map(function (c) {
-          return "<option value='" + esc(c.id) + "'>" + esc(c.name) + "</option>";
-        })
-        .join("") +
-      "</select></label>" +
-      '<label class="span-2">Hours / week<input class="field" name="hoursPerWeek" type="number" value="40" min="0" step="0.5"></label></div>' +
-      '<p class="help">PIN starts at 1111. Change it after first Work Orders login.</p>' +
-      '<div style="display:flex;justify-content:space-between;margin-top:.5rem">' +
-      '<button type="button" class="btn" data-action="close">Cancel</button>' +
-      '<button type="submit" class="btn primary">Save</button></div></form>';
+    var html = "";
+    html += "<form class=modal-card data-form=emp>";
+    html += "<h3 style='margin:0'>Add employee</h3>";
+    html += "<div class=form-grid>";
+    html += "<label class=span-2>Name<input class=field name=name required></label>";
+    html += "<label>Role<select class=field name=role>" + roleOpts("tech") + "</select></label>";
+    html += "<label>Work center<select class=field name=workCenterId><option value=>Unassigned</option>";
+    for (var i = 0; i < centers.length; i++) {
+      html += "<option value=" + esc(centers[i].id) + ">" + esc(centers[i].name) + "</option>";
+    }
+    html += "</select></label>";
+    html += "<label class=span-2>Hours / week<input class=field name=hoursPerWeek type=number value=40 min=0 step=0.5></label>";
+    html += "</div>";
+    html += "<p class=help>PIN starts at 1111. Change it after first Work Orders login.</p>";
+    html += "<div style='display:flex;justify-content:space-between;margin-top:.5rem'>";
+    html += "<button type=button class=btn data-action=close>Cancel</button>";
+    html += "<button type=submit class='btn primary'>Save</button>";
+    html += "</div></form>";
+    dlg.innerHTML = html;
     if (dlg.showModal) dlg.showModal();
   }
 
@@ -296,15 +268,20 @@
       if (!confirm("Delete this work center?")) return;
       var id = b.getAttribute("data-id");
       var d = load();
-      d.workCenters = (d.workCenters || []).filter(function (c) {
-        return String(c.id) !== String(id);
-      });
-      (d.people || []).forEach(function (p) {
-        if (String(p.workCenterId) === String(id)) p.workCenterId = "";
-      });
-      (d.workOrders || []).forEach(function (o) {
-        if (String(o.workCenterId) === String(id)) o.workCenterId = "";
-      });
+      var next = [];
+      var list = d.workCenters || [];
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i].id) !== String(id)) next.push(list[i]);
+      }
+      d.workCenters = next;
+      var peeps = d.people || [];
+      for (var j = 0; j < peeps.length; j++) {
+        if (String(peeps[j].workCenterId) === String(id)) peeps[j].workCenterId = "";
+      }
+      var orders = d.workOrders || [];
+      for (var k = 0; k < orders.length; k++) {
+        if (String(orders[k].workCenterId) === String(id)) orders[k].workCenterId = "";
+      }
       save(d);
       toast("Deleted");
       render();
@@ -313,9 +290,12 @@
       if (!confirm("Remove employee?")) return;
       var id2 = b.getAttribute("data-id");
       var d2 = load();
-      d2.people = (d2.people || []).filter(function (p) {
-        return String(p.id) !== String(id2);
-      });
+      var nextP = [];
+      var plist = d2.people || [];
+      for (var x = 0; x < plist.length; x++) {
+        if (String(plist[x].id) !== String(id2)) nextP.push(plist[x]);
+      }
+      d2.people = nextP;
       save(d2);
       toast("Removed");
       render();
@@ -323,14 +303,19 @@
     if (a === "reset-pin") {
       var id3 = b.getAttribute("data-id");
       var d3 = load();
-      var p = (d3.people || []).find(function (x) {
-        return String(x.id) === String(id3);
-      });
-      if (!p) return;
-      p.pin = "1111";
-      p.mustChangePin = true;
+      var person = null;
+      var plist2 = d3.people || [];
+      for (var y = 0; y < plist2.length; y++) {
+        if (String(plist2[y].id) === String(id3)) {
+          person = plist2[y];
+          break;
+        }
+      }
+      if (!person) return;
+      person.pin = "1111";
+      person.mustChangePin = true;
       save(d3);
-      toast((p.name || "Employee") + " PIN reset to 1111");
+      toast((person.name || "Employee") + " PIN reset to 1111");
     }
   });
 
@@ -339,14 +324,19 @@
     if (!sel) return;
     var id = sel.getAttribute("data-role-id");
     var d = load();
-    var p = (d.people || []).find(function (x) {
-      return String(x.id) === String(id);
-    });
-    if (!p) return;
-    p.role =
+    var person = null;
+    var list = d.people || [];
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].id) === String(id)) {
+        person = list[i];
+        break;
+      }
+    }
+    if (!person) return;
+    person.role =
       window.SuiteRoles && SuiteRoles.norm ? SuiteRoles.norm(sel.value) : normRole(sel.value);
     save(d);
-    toast((p.name || "") + " -> " + roleLabel(p.role));
+    toast((person.name || "") + " -> " + roleLabel(person.role));
   });
 
   document.addEventListener("submit", function (e) {
@@ -365,11 +355,21 @@
         color: String(fd.get("color") || "#1f6f6a"),
         notes: String(fd.get("notes") || "")
       };
-      var idx = d.workCenters.findIndex(function (c) {
-        return String(c.id) === String(rec.id);
-      });
-      if (idx >= 0) d.workCenters[idx] = Object.assign({}, d.workCenters[idx], rec);
-      else d.workCenters.push(rec);
+      var found = -1;
+      for (var i = 0; i < d.workCenters.length; i++) {
+        if (String(d.workCenters[i].id) === String(rec.id)) {
+          found = i;
+          break;
+        }
+      }
+      if (found >= 0) {
+        d.workCenters[found].name = rec.name;
+        d.workCenters[found].kind = rec.kind;
+        d.workCenters[found].color = rec.color;
+        d.workCenters[found].notes = rec.notes;
+      } else {
+        d.workCenters.push(rec);
+      }
       save(d);
       var modal = document.getElementById("modal");
       if (modal && modal.close) modal.close();
