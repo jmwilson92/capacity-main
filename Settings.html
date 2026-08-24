@@ -35,13 +35,13 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
 .help{font-size:.82rem;color:var(--ink-soft);line-height:1.4}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem}
 .grid a{text-decoration:none;color:inherit}
-.err{color:var(--over);padding:1rem;background:#f6d9d2;border-radius:10px}
+.err{color:var(--over);padding:1rem;background:#f6d9d2;border-radius:10px;margin:1rem 0}
 </style>
 </head>
 <body>
 <div class="top">
   <div class="top-row">
-    <div class="brand"><div class="mark">SET</div><div><h1>Settings</h1><p>Work centers · roles · people</p></div></div>
+    <div class="brand"><div class="mark">SET</div><div><h1>Settings</h1><p>Work centers - roles - people</p></div></div>
     <div id="suite-auth-host"></div>
   </div>
   <div class="tabs" id="tabs"></div>
@@ -49,21 +49,28 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
 <div class="wrap" id="main">Loading...</div>
 <div class="toasts" id="toasts"></div>
 <dialog id="modal"></dialog>
-<script src="roles.js"></script>
 <script src="nav.js"></script>
 <script>
 (function () {
   var STORAGE_KEY = "capacity-tracker.v1";
   var COLORS = ["#1f6f6a", "#1d4e89", "#8a3b12", "#6b4c9a", "#3d5a40", "#9a3412", "#0f4c5c", "#7a2f4b"];
+  var ROLE_ORDER = ["tech", "qa", "mfgeng", "supervisor", "manager", "admin"];
+  var ROLE_LABELS = {
+    tech: "Floor Tech",
+    qa: "QA",
+    mfgeng: "Mfg Eng",
+    supervisor: "Supervisor",
+    manager: "Manager",
+    admin: "Admin"
+  };
 
   function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) {
-      if (ch === "&") return "&" + "amp;";
-      if (ch === "<") return "&" + "lt;";
-      if (ch === ">") return "&" + "gt;";
-      if (ch === '"') return "&" + "quot;";
-      return "&#39;";
-    });
+    return String(s == null ? "" : s)
+      .split("&").join("&" + "amp;")
+      .split("<").join("&" + "lt;")
+      .split(">").join("&" + "gt;")
+      .split('"').join("&" + "quot;")
+      .split("'").join("&#" + "39;");
   }
 
   function uid(p) {
@@ -74,7 +81,8 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
     var el = document.createElement("div");
     el.className = "toast";
     el.textContent = m;
-    document.getElementById("toasts").appendChild(el);
+    var host = document.getElementById("toasts");
+    if (host) host.appendChild(el);
     setTimeout(function () { el.remove(); }, 2800);
   }
 
@@ -91,26 +99,57 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
 
+  function normRole(r) {
+    var s = String(r || "tech").toLowerCase().replace(/\s+/g, "");
+    if (s === "floortech" || s === "technician") return "tech";
+    if (s === "quality" || s === "inspector") return "qa";
+    if (s === "mfg" || s === "mfgengineer" || s === "engineer" || s === "me") return "mfgeng";
+    if (s === "super" || s === "lead") return "supervisor";
+    if (s === "mgr") return "manager";
+    if (ROLE_LABELS[s]) return s;
+    return "tech";
+  }
+
   function roleLabel(r) {
-    return window.SuiteRoles ? SuiteRoles.label(r) : (r || "tech");
+    if (window.SuiteRoles && SuiteRoles.label) return SuiteRoles.label(r);
+    return ROLE_LABELS[normRole(r)] || r || "Floor Tech";
   }
 
   function roleOpts(sel) {
-    return window.SuiteRoles
-      ? SuiteRoles.optionsHtml(sel)
-      : '<option value="tech">Floor Tech</option>';
+    if (window.SuiteRoles && SuiteRoles.optionsHtml) return SuiteRoles.optionsHtml(sel);
+    var cur = normRole(sel);
+    return ROLE_ORDER.map(function (r) {
+      return '<option value="' + r + '"' + (r === cur ? " selected" : "") + ">" + ROLE_LABELS[r] + "</option>";
+    }).join("");
+  }
+
+  function paintNav() {
+    try {
+      var tabs = document.getElementById("tabs");
+      if (tabs) {
+        if (window.SuiteNav && SuiteNav.html) tabs.innerHTML = SuiteNav.html("Settings");
+        else {
+          tabs.innerHTML =
+            '<a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>' +
+            '<a class="tab" href="CapacityTracker.html#planning">Planning</a>' +
+            '<a class="tab" href="WorkOrders.html">Work Orders</a>' +
+            '<a class="tab" href="WipBoard.html">WIP Board</a>' +
+            '<a class="tab" href="WorkInstructions.html">Work Instructions</a>' +
+            '<a class="tab" href="Analytics.html">Analytics</a>' +
+            '<a class="tab is-on" href="Settings.html">Settings</a>';
+        }
+      }
+      if (window.SuiteNav && SuiteNav.paintAuth) SuiteNav.paintAuth();
+    } catch (e) {}
   }
 
   function render() {
     try {
-      document.getElementById("tabs").innerHTML =
-        (window.SuiteNav && SuiteNav.html("Settings")) || "";
-      if (window.SuiteNav) SuiteNav.paintAuth();
-
+      paintNav();
       var d = load();
       var centers = d.workCenters || [];
       var people = (d.people || []).slice().sort(function (a, b) {
-        return String(a.name).localeCompare(String(b.name));
+        return String(a.name || "").localeCompare(String(b.name || ""));
       });
       var html = "";
 
@@ -127,7 +166,7 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
       html += '<button type="button" class="btn primary" data-action="new-wc">New work center</button></div>';
 
       if (!centers.length) {
-        html += '<div class="card"><p class="help" style="margin:0">No work centers yet.</p></div>';
+        html += '<div class="card"><p class="help" style="margin:0">No work centers yet. Click New work center.</p></div>';
       } else {
         centers.forEach(function (c) {
           html += '<div class="wc-row"><div><span class="dot" style="background:' +
@@ -140,7 +179,7 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
         });
       }
 
-      html += '<div class="page-head" style="margin-top:1.75rem"><div><h2>Employees & roles</h2>';
+      html += '<div class="page-head" style="margin-top:1.75rem"><div><h2>Employees and roles</h2>';
       html += '<p class="lede">Assign Floor Tech, QA, Mfg Eng, Supervisor, Manager, or Admin. PIN default 1111.</p></div>';
       html += '<button type="button" class="btn primary" data-action="new-emp">Add employee</button></div>';
 
@@ -176,8 +215,9 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
 
       document.getElementById("main").innerHTML = html;
     } catch (err) {
+      var msg = err && err.message ? err.message : String(err);
       document.getElementById("main").innerHTML =
-        '<div class="err">Settings error: ' + esc(err && err.message ? err.message : String(err)) + "</div>";
+        '<div class="err">Settings error: ' + esc(msg) + "</div>";
     }
   }
 
@@ -225,7 +265,7 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
       '<div style="display:flex;justify-content:space-between;margin-top:.5rem">' +
       '<button type="button" class="btn" data-action="close">Cancel</button>' +
       '<button type="submit" class="btn primary">Save</button></div></form>';
-    dlg.showModal();
+    if (dlg.showModal) dlg.showModal();
   }
 
   function openEmp() {
@@ -241,16 +281,16 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
       '<label>Work center<select class="field" name="workCenterId"><option value="">Unassigned</option>' +
       centers
         .map(function (c) {
-          return '<option value="' + c.id + '">' + esc(c.name) + "</option>";
+          return '<option value="' + esc(c.id) + '">' + esc(c.name) + "</option>";
         })
         .join("") +
       "</select></label>" +
       '<label class="span-2">Hours / week<input class="field" name="hoursPerWeek" type="number" value="40" min="0" step="0.5"></label></div>' +
-      '<p class="help">PIN starts at 1111. They change it on first Work Orders login.</p>' +
+      '<p class="help">PIN starts at 1111. Change it after first Work Orders login.</p>' +
       '<div style="display:flex;justify-content:space-between;margin-top:.5rem">' +
       '<button type="button" class="btn" data-action="close">Cancel</button>' +
       '<button type="submit" class="btn primary">Save</button></div></form>';
-    dlg.showModal();
+    if (dlg.showModal) dlg.showModal();
   }
 
   document.addEventListener("click", function (e) {
@@ -262,7 +302,7 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
     if (a === "new-emp") openEmp();
     if (a === "close") {
       var m = document.getElementById("modal");
-      if (m) m.close();
+      if (m && m.close) m.close();
     }
     if (a === "del-wc") {
       if (!confirm("Delete this work center?")) return;
@@ -302,7 +342,7 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
       p.pin = "1111";
       p.mustChangePin = true;
       save(d3);
-      toast(p.name + " PIN reset to 1111");
+      toast((p.name || "Employee") + " PIN reset to 1111");
     }
   });
 
@@ -315,9 +355,11 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
       return String(x.id) === String(id);
     });
     if (!p) return;
-    p.role = window.SuiteRoles ? SuiteRoles.norm(sel.value) : sel.value;
+    p.role = window.SuiteRoles && SuiteRoles.norm
+      ? SuiteRoles.norm(sel.value)
+      : normRole(sel.value);
     save(d);
-    toast(p.name + " -> " + roleLabel(p.role));
+    toast((p.name || "") + " -> " + roleLabel(p.role));
   });
 
   document.addEventListener("submit", function (e) {
@@ -342,15 +384,16 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
       if (idx >= 0) d.workCenters[idx] = Object.assign({}, d.workCenters[idx], rec);
       else d.workCenters.push(rec);
       save(d);
-      document.getElementById("modal").close();
+      var modal = document.getElementById("modal");
+      if (modal && modal.close) modal.close();
       toast("Work center saved");
       render();
     }
     if (form.getAttribute("data-form") === "emp") {
       if (!d.people) d.people = [];
-      var role = window.SuiteRoles
+      var role = window.SuiteRoles && SuiteRoles.norm
         ? SuiteRoles.norm(fd.get("role"))
-        : String(fd.get("role") || "tech");
+        : normRole(fd.get("role"));
       d.people.push({
         id: uid("p"),
         name: String(fd.get("name") || "").trim() || "Unnamed",
@@ -364,13 +407,21 @@ dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgb
         notes: ""
       });
       save(d);
-      document.getElementById("modal").close();
-      toast("Employee added · PIN 1111");
+      var modal2 = document.getElementById("modal");
+      if (modal2 && modal2.close) modal2.close();
+      toast("Employee added - PIN 1111");
       render();
     }
   });
 
-  render();
+  try {
+    render();
+  } catch (bootErr) {
+    document.getElementById("main").innerHTML =
+      '<div class="err">Boot error: ' +
+      String(bootErr && bootErr.message ? bootErr.message : bootErr) +
+      "</div>";
+  }
 })();
 </script>
 </body>
