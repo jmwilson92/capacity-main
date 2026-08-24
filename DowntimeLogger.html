@@ -37,7 +37,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 </style>
 </head>
 <body>
-<div id="app"><div class="wrap"><p>Loading downtime…</p></div></div>
+<div id="app"><div class="wrap"><p>Loading downtime...</p></div></div>
 <script>
 (function () {
   var STORAGE_KEY = "capacity-tracker.v1";
@@ -96,10 +96,16 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
   }
 
   function toast(m) {
+    var host = document.querySelector(".toasts");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "toasts";
+      document.body.appendChild(host);
+    }
     var el = document.createElement("div");
     el.className = "toast";
     el.textContent = m;
-    (document.querySelector(".toasts") || document.body).appendChild(el);
+    host.appendChild(el);
     setTimeout(function () {
       el.remove();
     }, 2800);
@@ -109,18 +115,18 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
     for (var i = 0; i < state.workCenters.length; i++) {
       if (String(state.workCenters[i].id) === String(id)) return state.workCenters[i].name;
     }
-    return "—";
+    return "-";
   }
 
   function personName(id) {
     for (var i = 0; i < state.people.length; i++) {
       if (String(state.people[i].id) === String(id)) return state.people[i].name;
     }
-    return "—";
+    return "-";
   }
 
   function reasonLabel(id) {
-    return REASONS[id] || id || "—";
+    return REASONS[id] || id || "-";
   }
 
   function filtered() {
@@ -143,16 +149,16 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
       if (state.downtime[i].id === id) {
         state.downtime[i].status = "closed";
         var now = new Date();
-        state.downtime[i].endDate =
-          now.getFullYear() +
-          "-" +
-          String(now.getMonth() + 1).padStart(2, "0") +
-          "-" +
-          String(now.getDate()).padStart(2, "0");
-        state.downtime[i].endTime =
-          String(now.getHours()).padStart(2, "0") +
-          ":" +
-          String(now.getMinutes()).padStart(2, "0");
+        var mm = String(now.getMonth() + 1);
+        if (mm.length < 2) mm = "0" + mm;
+        var dd = String(now.getDate());
+        if (dd.length < 2) dd = "0" + dd;
+        var hh = String(now.getHours());
+        if (hh.length < 2) hh = "0" + hh;
+        var mi = String(now.getMinutes());
+        if (mi.length < 2) mi = "0" + mi;
+        state.downtime[i].endDate = now.getFullYear() + "-" + mm + "-" + dd;
+        state.downtime[i].endTime = hh + ":" + mi;
         break;
       }
     }
@@ -171,144 +177,119 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
     render();
   }
 
+  function navHtml() {
+    return [
+      '<nav class="tabs">',
+      '<a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>',
+      '<a class="tab" href="CapacityTracker.html#planning">Planning</a>',
+      '<a class="tab" href="WorkOrders.html">Work Orders</a>',
+      '<a class="tab" href="WipBoard.html">WIP Board</a>',
+      '<a class="tab" href="WorkInstructions.html">Work Instructions</a>',
+      '<a class="tab is-on" href="DowntimeLogger.html">Downtime</a>',
+      '<a class="tab" href="Analytics.html">Analytics</a>',
+      '<a class="tab" href="Settings.html">Settings</a>',
+      "</nav>"
+    ].join("");
+  }
+
+  function rowHtml(d) {
+    var parts = [];
+    parts.push("<tr>");
+    parts.push("<td>" + esc(d.startDate || "") + " " + esc(d.startTime || "") + "</td>");
+    parts.push("<td><b>" + esc(d.workOrderNumber || "-") + "</b>");
+    if (d.workOrderTitle) {
+      parts.push('<div style="font-size:.8rem;color:var(--ink-soft)">' + esc(d.workOrderTitle) + "</div>");
+    }
+    parts.push("</td>");
+    parts.push("<td>" + esc(centerName(d.workCenterId)) + "</td>");
+    parts.push("<td>" + esc(reasonLabel(d.reason)) + "</td>");
+    parts.push("<td>" + esc(d.personName || personName(d.personId)) + "</td>");
+    parts.push('<td><span class="pill ' + (d.status === "open" ? "open" : "closed") + '">' + esc(d.status || "open") + "</span></td>");
+    parts.push("<td>" + (d.notes ? esc(d.notes) : "-") + "</td>");
+    parts.push('<td style="white-space:nowrap">');
+    if (d.status === "open") {
+      parts.push('<button class="btn small primary" data-action="close" data-id="' + esc(d.id) + '">Close</button> ');
+    }
+    parts.push('<button class="btn small danger" data-action="delete" data-id="' + esc(d.id) + '">x</button>');
+    parts.push("</td></tr>");
+    return parts.join("");
+  }
+
   function render() {
     try {
-      var open = state.downtime.filter(function (d) {
-        return d.status === "open";
-      }).length;
+      var open = 0;
+      for (var i = 0; i < state.downtime.length; i++) {
+        if (state.downtime[i].status === "open") open++;
+      }
       var list = filtered();
 
-      var centerOpts = state.workCenters
-        .map(function (c) {
-          return (
-            '<option value="' +
-            esc(c.id) +
-            '"' +
-            (String(state.filterCenter) === String(c.id) ? " selected" : "") +
-            ">" +
-            esc(c.name) +
-            "</option>"
-          );
-        })
-        .join("");
+      var centerOpts = ['<option value="">All centers</option>'];
+      for (var c = 0; c < state.workCenters.length; c++) {
+        var wc = state.workCenters[c];
+        var sel = String(state.filterCenter) === String(wc.id) ? " selected" : "";
+        centerOpts.push('<option value="' + esc(wc.id) + '"' + sel + ">" + esc(wc.name) + "</option>");
+      }
 
-      var rows = list
-        .map(function (d) {
-          return (
-            "<tr>" +
-            "<td>" +
-            esc(d.startDate || "") +
-            " " +
-            esc(d.startTime || "") +
-            "</td>" +
-            "<td><b>" +
-            esc(d.workOrderNumber || "—") +
-            "</b>" +
-            (d.workOrderTitle
-              ? '<div style="font-size:.8rem;color:var(--ink-soft)">' +
-                esc(d.workOrderTitle) +
-                "</div>"
-              : "") +
-            "</td>" +
-            "<td>" +
-            esc(centerName(d.workCenterId)) +
-            "</td>" +
-            "<td>" +
-            esc(reasonLabel(d.reason)) +
-            "</td>" +
-            "<td>" +
-            esc(d.personName || personName(d.personId)) +
-            "</td>" +
-            '<td><span class="pill ' +
-            (d.status === "open" ? "open" : "closed") +
-            '">' +
-            esc(d.status || "open") +
-            "</span></td>" +
-            "<td>" +
-            (d.notes ? esc(d.notes) : "—") +
-            "</td>" +
-            '<td style="white-space:nowrap">' +
-            (d.status === "open"
-              ? '<button class="btn small primary" data-action="close" data-id="' +
-                esc(d.id) +
-                '">Close</button> '
-              : "") +
-            '<button class="btn small danger" data-action="delete" data-id="' +
-            esc(d.id) +
-            '">x</button></td></tr>'
-          );
-        })
-        .join("");
+      var openJobs = 0;
+      for (var j = 0; j < state.workOrders.length; j++) {
+        if (state.workOrders[j].status !== "complete") openJobs++;
+      }
 
-      document.getElementById("app").innerHTML =
-        '<div class="top"><div class="top-row"><div class="brand"><div class="mark">DT</div><div><h1>Downtime</h1><p>Issues from the floor · tied to work orders</p></div></div></div>' +
-        '<nav class="tabs">' +
-        '<a class="tab" href="CapacityTracker.html#dashboard">Work Centers</a>' +
-        '<a class="tab" href="CapacityTracker.html#planning">Planning</a>' +
-        '<a class="tab" href="WorkOrders.html">Work Orders</a>' +
-        '<a class="tab" href="WipBoard.html">WIP Board</a>' +
-        '<a class="tab" href="WorkInstructions.html">Work Instructions</a>' +
-        '<a class="tab is-on" href="DowntimeLogger.html">Downtime</a>' +
-        '<a class="tab" href="Analytics.html">Analytics</a>' +
-        '<a class="tab" href="Settings.html">Settings</a>' +
-        "</nav></div>" +
-        '<div class="wrap">' +
-        '<h2 style="margin:0 0 .35rem">Downtime overview</h2>' +
-        '<p style="color:var(--ink-soft);margin:0 0 1rem">Techs report from Work Orders. This page is the board.</p>' +
-        '<div class="kpis">' +
-        '<div class="kpi' +
-        (open ? " over" : "") +
-        '"><div class="label">Open</div><div class="value">' +
-        open +
-        "</div></div>" +
-        '<div class="kpi"><div class="label">Total logged</div><div class="value">' +
-        state.downtime.length +
-        "</div></div>" +
-        '<div class="kpi"><div class="label">Work centers</div><div class="value">' +
-        state.workCenters.length +
-        "</div></div>" +
-        '<div class="kpi"><div class="label">Open jobs</div><div class="value">' +
-        state.workOrders.filter(function (o) {
-          return o.status !== "complete";
-        }).length +
-        "</div></div></div>" +
-        '<div class="card">' +
-        '<div class="filters">' +
-        '<label style="font-size:.85rem;display:flex;align-items:center;gap:.35rem"><input type="checkbox" id="fOpen"' +
-        (state.filterOpenOnly ? " checked" : "") +
-        "> Open only</label>" +
-        '<select class="field" style="width:auto;min-width:10rem" id="fCenter">' +
-        '<option value="">All centers</option>' +
-        centerOpts +
-        "</select>" +
-        '<button class="btn small" type="button" id="btnReload">Reload</button>' +
-        "</div>" +
-        (list.length
-          ? '<div style="overflow-x:auto"><table><thead><tr><th>When</th><th>Job</th><th>Center</th><th>Reason</th><th>By</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>' +
-            rows +
-            "</tbody></table></div>"
-          : '<div class="empty">No downtime events yet.<br><br>On <b>Work Orders</b>, press <b>Downtime</b> on a job to report one.</div>') +
-        "</div></div><div class="toasts"></div>";
+      var body = [];
+      body.push('<div class="top"><div class="top-row"><div class="brand"><div class="mark">DT</div><div><h1>Downtime</h1><p>Issues from the floor</p></div></div></div>');
+      body.push(navHtml());
+      body.push("</div>");
+      body.push('<div class="wrap">');
+      body.push("<h2 style=\"margin:0 0 .35rem\">Downtime overview</h2>");
+      body.push('<p style="color:var(--ink-soft);margin:0 0 1rem">Report from Work Orders. This is the board.</p>');
+      body.push('<div class="kpis">');
+      body.push('<div class="kpi' + (open ? " over" : "") + '"><div class="label">Open</div><div class="value">' + open + "</div></div>");
+      body.push('<div class="kpi"><div class="label">Total logged</div><div class="value">' + state.downtime.length + "</div></div>");
+      body.push('<div class="kpi"><div class="label">Work centers</div><div class="value">' + state.workCenters.length + "</div></div>");
+      body.push('<div class="kpi"><div class="label">Open jobs</div><div class="value">' + openJobs + "</div></div>");
+      body.push("</div>");
+      body.push('<div class="card">');
+      body.push('<div class="filters">');
+      body.push('<label style="font-size:.85rem;display:flex;align-items:center;gap:.35rem"><input type="checkbox" id="fOpen"' + (state.filterOpenOnly ? " checked" : "") + "> Open only</label>');
+      body.push('<select class="field" style="width:auto;min-width:10rem" id="fCenter">' + centerOpts.join("") + "</select>");
+      body.push('<button class="btn small" type="button" id="btnReload">Reload</button>');
+      body.push("</div>");
+
+      if (list.length) {
+        body.push('<div style="overflow-x:auto"><table><thead><tr><th>When</th><th>Job</th><th>Center</th><th>Reason</th><th>By</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>');
+        for (var r = 0; r < list.length; r++) body.push(rowHtml(list[r]));
+        body.push("</tbody></table></div>");
+      } else {
+        body.push('<div class="empty">No downtime events yet.<br><br>On Work Orders, press Downtime on a job to report one.</div>');
+      }
+
+      body.push("</div></div>");
+      body.push('<div class="toasts"></div>');
+
+      document.getElementById("app").innerHTML = body.join("");
 
       var fo = document.getElementById("fOpen");
-      if (fo)
+      if (fo) {
         fo.onchange = function () {
           state.filterOpenOnly = fo.checked;
           render();
         };
+      }
       var fc = document.getElementById("fCenter");
-      if (fc)
+      if (fc) {
         fc.onchange = function () {
           state.filterCenter = fc.value;
           render();
         };
+      }
       var br = document.getElementById("btnReload");
-      if (br)
+      if (br) {
         br.onclick = function () {
           load();
           toast("Reloaded");
           render();
         };
+      }
     } catch (err) {
       document.getElementById("app").innerHTML =
         '<div class="wrap"><div class="err">Downtime error: ' +
