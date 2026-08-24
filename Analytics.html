@@ -40,6 +40,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 .subtab{border:1px solid var(--rule);background:var(--card);border-radius:999px;padding:.4rem .85rem;cursor:pointer;font:inherit}
 .subtab.is-on{background:var(--accent-ink);color:#f6f1e7;border-color:var(--accent-ink)}
 .empty{text-align:center;padding:1.5rem;color:var(--ink-soft)}
+.err{color:var(--over);padding:1rem;background:#f6d9d2;border-radius:10px}
 @media(max-width:800px){.kpis{grid-template-columns:1fr 1fr}}
   </style>
 </head>
@@ -51,49 +52,307 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
   </div>
   <div class="tabs" id="tabs"></div>
 </div>
-<div class="wrap" id="main">Loading…</div>
+<div class="wrap" id="main">Loading...</div>
 <script src="nav.js"></script>
 <script>
-(function(){
-var STORAGE_KEY="capacity-tracker.v1";
-var state={ range:"week", view:"timecard" };
-function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(ch){if(ch==="&")return"\x26amp;";if(ch==="<")return"\x26lt;";if(ch===">")return"\x26gt;";if(ch==="\"")return"\x26quot;";return"\x26#39;";});}
-function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(e){return {};}}
-function num(v,f){var n=Number(v);return Number.isFinite(n)?n:(f||0);}
-function startOfDay(d){var x=new Date(d);x.setHours(0,0,0,0);return x;}
-function startOfWeek(d){var x=startOfDay(d);var day=x.getDay();var diff=(day===0?-6:1-day);x.setDate(x.getDate()+diff);return x;}
-function formatHours(ms){var m=Math.max(0,Math.round(ms/60000));var h=Math.floor(m/60);var r=m%60;if(h===0)return r+"m";return h+":"+String(r).padStart(2,"0");}
-function formatHoursDec(ms){return (Math.round((ms/36e5)*100)/100).toFixed(2);}
-function rangeBounds(){var now=new Date();if(state.range==="today"){var s=startOfDay(now);return{start:s.getTime(),end:s.getTime()+86400000,label:"Today"};}if(state.range==="lastweek"){var ws=startOfWeek(now);var start=new Date(ws);start.setDate(start.getDate()-7);return{start:start.getTime(),end:ws.getTime(),label:"Last week"};}if(state.range==="all")return{start:0,end:Infinity,label:"All time"};var w=startOfWeek(now);return{start:w.getTime(),end:w.getTime()+7*86400000,label:"This week"};}
-function entriesInRange(entries){var b=rangeBounds();return(entries||[]).filter(function(e){var t=e.endedAt?new Date(e.endedAt).getTime():(e.startedAt?new Date(e.startedAt).getTime():0);return t>=b.start&&t<b.end;});}
-function buildPersonCards(entries){var byPerson={};entries.forEach(function(e){var pid=String(e.personId||e.personName||"unknown");if(!byPerson[pid])byPerson[pid]={personId:pid,name:e.personName||"Unknown",byCode:{},totalMs:0,rows:[]};var p=byPerson[pid];var cc=String(e.chargeCode||"UNASSIGNED").trim()||"UNASSIGNED";if(!p.byCode[cc])p.byCode[cc]={ms:0,jobs:{}};p.byCode[cc].ms+=num(e.durationMs,0);var jn=e.workOrderNumber||e.workOrderId||"?";p.byCode[cc].jobs[jn]=(p.byCode[cc].jobs[jn]||0)+num(e.durationMs,0);p.totalMs+=num(e.durationMs,0);p.rows.push(e);});return Object.values(byPerson).sort(function(a,b){return b.totalMs-a.totalMs;});}
-function render(){
-  document.getElementById("tabs").innerHTML=(window.SuiteNav&&SuiteNav.html("Analytics"))||"";
-  if(window.SuiteNav)SuiteNav.paintAuth();
-  var d=load();var allEntries=d.timeEntries||[];var entries=entriesInRange(allEntries);var people=buildPersonCards(entries);
-  var wos=d.workOrders||[];var open=wos.filter(function(o){return o.status!=="complete";});
-  var remHrs=open.reduce(function(s,o){return s+num(o.remainingHours,0);},0);
-  var totalMs=entries.reduce(function(s,e){return s+num(e.durationMs,0);},0);var bounds=rangeBounds();
-  var missingCc=open.filter(function(o){return !o.chargeCode;}).length;
-  var html='<div style="margin-bottom:1rem"><h2 style="margin:0">Timecard · charge codes</h2><p style="margin:.25rem 0 0;color:var(--ink-soft);font-size:.9rem">Check in → Exit logs minutes by charge code.</p></div>';
-  html+='<div class="subtabs"><button type="button" class="subtab '+(state.view==="timecard"?"is-on":"")+'" data-view="timecard">Timecard</button><button type="button" class="subtab '+(state.view==="capacity"?"is-on":"")+'" data-view="capacity">Capacity snapshot</button></div>';
-  if(state.view==="timecard"){
-    html+='<div class="filters">';["today","week","lastweek","all"].forEach(function(r){var labels={today:"Today",week:"This week",lastweek:"Last week",all:"All time"};html+='<button type="button" class="subtab '+(state.range===r?"is-on":"")+'" data-range="'+r+'">'+labels[r]+'</button>';});
-    html+='<span style="color:var(--ink-soft);font-size:.85rem">'+esc(bounds.label)+' · '+entries.length+' sessions</span></div>';
-    html+='<div class="kpis"><div class="kpi"><div class="label">Logged time</div><div class="value">'+formatHours(totalMs)+'</div></div><div class="kpi"><div class="label">Decimal hours</div><div class="value">'+formatHoursDec(totalMs)+'</div></div><div class="kpi"><div class="label">People</div><div class="value">'+people.length+'</div></div><div class="kpi"><div class="label">Open WOs missing charge code</div><div class="value">'+missingCc+'</div></div></div>';
-    if(!people.length){html+='<div class="card empty">No time logged yet. Check in on Work Orders, set a charge code, then Exit.</div>';}
-    else{html+='<div class="person-grid">';people.forEach(function(p){html+='<div class="person-card"><h3>'+esc(p.name)+'</h3><p class="sub">Timecard hours</p>';Object.keys(p.byCode).sort().forEach(function(cc){var row=p.byCode[cc];var jobs=Object.keys(row.jobs).map(function(jn){return esc(jn)+' '+formatHours(row.jobs[jn]);}).join(' · ');html+='<div class="cc-row"><div><div class="cc-code">'+esc(cc)+'</div><div class="cc-detail">'+jobs+'</div></div><div class="cc-hrs">'+formatHours(row.ms)+' <span style="font-size:.75rem;font-weight:500;color:var(--ink-soft)">('+formatHoursDec(row.ms)+'h)</span></div></div>';});html+='<div class="total-line"><span>Total</span><span>'+formatHours(p.totalMs)+' · '+formatHoursDec(p.totalMs)+'h</span></div></div>';});html+='</div>';}
-  } else {
-    var centers=d.workCenters||[];var byCenter={};centers.forEach(function(c){byCenter[c.id]={name:c.name,hrs:0,jobs:0};});open.forEach(function(o){var id=o.workCenterId||"_";if(!byCenter[id])byCenter[id]={name:id,hrs:0,jobs:0};byCenter[id].hrs+=num(o.remainingHours,0);byCenter[id].jobs+=1;});
-    html+='<div class="kpis"><div class="kpi"><div class="label">Open jobs</div><div class="value">'+open.length+'</div></div><div class="kpi"><div class="label">Hours remaining</div><div class="value">'+Math.round(remHrs)+'</div></div><div class="kpi"><div class="label">Time sessions</div><div class="value">'+allEntries.length+'</div></div></div>';
-    html+='<div class="card"><h3 style="margin:0 0 .75rem">Load by work center</h3><table><thead><tr><th>Work center</th><th>Open jobs</th><th>Hours rem</th></tr></thead><tbody>';
-    html+=Object.values(byCenter).sort(function(a,b){return b.hrs-a.hrs;}).map(function(c){return'<tr><td>'+esc(c.name)+'</td><td>'+c.jobs+'</td><td>'+Math.round(c.hrs*10)/10+'</td></tr>';}).join("")||'<tr><td colspan="3">No data</td></tr>';
-    html+='</tbody></table></div>';
+(function () {
+  var STORAGE_KEY = "capacity-tracker.v1";
+  var state = { range: "week", view: "timecard" };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) {
+      if (ch === "&") return "&" + "amp;";
+      if (ch === "<") return "&" + "lt;";
+      if (ch === ">") return "&" + "gt;";
+      if (ch === '"') return "&" + "quot;";
+      return "&#39;";
+    });
   }
-  document.getElementById("main").innerHTML=html;
-}
-document.addEventListener("click",function(e){var r=e.target.closest("[data-range]");if(r){state.range=r.getAttribute("data-range");render();return;}var v=e.target.closest("[data-view]");if(v){state.view=v.getAttribute("data-view");render();}});
-render();
+
+  function load() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function num(v, f) {
+    var n = Number(v);
+    return Number.isFinite(n) ? n : f || 0;
+  }
+
+  function startOfDay(d) {
+    var x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  function startOfWeek(d) {
+    var x = startOfDay(d);
+    var day = x.getDay();
+    var diff = day === 0 ? -6 : 1 - day;
+    x.setDate(x.getDate() + diff);
+    return x;
+  }
+
+  function formatHours(ms) {
+    var m = Math.max(0, Math.round(ms / 60000));
+    var h = Math.floor(m / 60);
+    var r = m % 60;
+    if (h === 0) return r + "m";
+    return h + ":" + String(r).padStart(2, "0");
+  }
+
+  function formatHoursDec(ms) {
+    return (Math.round((ms / 36e5) * 100) / 100).toFixed(2);
+  }
+
+  function rangeBounds() {
+    var now = new Date();
+    if (state.range === "today") {
+      var s = startOfDay(now);
+      return { start: s.getTime(), end: s.getTime() + 86400000, label: "Today" };
+    }
+    if (state.range === "lastweek") {
+      var ws = startOfWeek(now);
+      var start = new Date(ws);
+      start.setDate(start.getDate() - 7);
+      return { start: start.getTime(), end: ws.getTime(), label: "Last week" };
+    }
+    if (state.range === "all") return { start: 0, end: Infinity, label: "All time" };
+    var w = startOfWeek(now);
+    return { start: w.getTime(), end: w.getTime() + 7 * 86400000, label: "This week" };
+  }
+
+  function entriesInRange(entries) {
+    var b = rangeBounds();
+    return (entries || []).filter(function (e) {
+      var t = e.endedAt
+        ? new Date(e.endedAt).getTime()
+        : e.startedAt
+          ? new Date(e.startedAt).getTime()
+          : 0;
+      return t >= b.start && t < b.end;
+    });
+  }
+
+  function buildPersonCards(entries) {
+    var byPerson = {};
+    entries.forEach(function (e) {
+      var pid = String(e.personId || e.personName || "unknown");
+      if (!byPerson[pid]) {
+        byPerson[pid] = {
+          personId: pid,
+          name: e.personName || "Unknown",
+          byCode: {},
+          totalMs: 0,
+          rows: []
+        };
+      }
+      var p = byPerson[pid];
+      var cc = String(e.chargeCode || "UNASSIGNED").trim() || "UNASSIGNED";
+      if (!p.byCode[cc]) p.byCode[cc] = { ms: 0, jobs: {} };
+      p.byCode[cc].ms += num(e.durationMs, 0);
+      var jn = e.workOrderNumber || e.workOrderId || "?";
+      p.byCode[cc].jobs[jn] = (p.byCode[cc].jobs[jn] || 0) + num(e.durationMs, 0);
+      p.totalMs += num(e.durationMs, 0);
+      p.rows.push(e);
+    });
+    return Object.values(byPerson).sort(function (a, b) {
+      return b.totalMs - a.totalMs;
+    });
+  }
+
+  function render() {
+    try {
+      document.getElementById("tabs").innerHTML =
+        (window.SuiteNav && SuiteNav.html("Analytics")) || "";
+      if (window.SuiteNav) SuiteNav.paintAuth();
+
+      var d = load();
+      var allEntries = d.timeEntries || [];
+      var entries = entriesInRange(allEntries);
+      var people = buildPersonCards(entries);
+      var wos = d.workOrders || [];
+      var open = wos.filter(function (o) {
+        return o.status !== "complete";
+      });
+      var remHrs = open.reduce(function (s, o) {
+        return s + num(o.remainingHours, 0);
+      }, 0);
+      var totalMs = entries.reduce(function (s, e) {
+        return s + num(e.durationMs, 0);
+      }, 0);
+      var bounds = rangeBounds();
+      var missingCc = open.filter(function (o) {
+        return !o.chargeCode;
+      }).length;
+
+      var html =
+        '<div style="margin-bottom:1rem"><h2 style="margin:0">Timecard · charge codes</h2>' +
+        '<p style="margin:.25rem 0 0;color:var(--ink-soft);font-size:.9rem">Check in then Exit logs minutes by charge code.</p></div>';
+
+      html +=
+        '<div class="subtabs">' +
+        '<button type="button" class="subtab ' +
+        (state.view === "timecard" ? "is-on" : "") +
+        '" data-view="timecard">Timecard</button>' +
+        '<button type="button" class="subtab ' +
+        (state.view === "capacity" ? "is-on" : "") +
+        '" data-view="capacity">Capacity snapshot</button></div>';
+
+      if (state.view === "timecard") {
+        html += '<div class="filters">';
+        ["today", "week", "lastweek", "all"].forEach(function (r) {
+          var labels = {
+            today: "Today",
+            week: "This week",
+            lastweek: "Last week",
+            all: "All time"
+          };
+          html +=
+            '<button type="button" class="subtab ' +
+            (state.range === r ? "is-on" : "") +
+            '" data-range="' +
+            r +
+            '">' +
+            labels[r] +
+            "</button>";
+        });
+        html +=
+          '<span style="color:var(--ink-soft);font-size:.85rem">' +
+          esc(bounds.label) +
+          " · " +
+          entries.length +
+          " sessions</span></div>";
+
+        html +=
+          '<div class="kpis">' +
+          '<div class="kpi"><div class="label">Logged time</div><div class="value">' +
+          formatHours(totalMs) +
+          "</div></div>" +
+          '<div class="kpi"><div class="label">Decimal hours</div><div class="value">' +
+          formatHoursDec(totalMs) +
+          "</div></div>" +
+          '<div class="kpi"><div class="label">People</div><div class="value">' +
+          people.length +
+          "</div></div>" +
+          '<div class="kpi"><div class="label">Open WOs missing charge code</div><div class="value">' +
+          missingCc +
+          "</div></div></div>";
+
+        if (!people.length) {
+          html +=
+            '<div class="card empty">No time logged yet. Check in on Work Orders, set a charge code, then Exit.</div>';
+        } else {
+          html += '<div class="person-grid">';
+          people.forEach(function (p) {
+            html +=
+              '<div class="person-card"><h3>' +
+              esc(p.name) +
+              '</h3><p class="sub">Timecard hours</p>';
+            Object.keys(p.byCode)
+              .sort()
+              .forEach(function (cc) {
+                var row = p.byCode[cc];
+                var jobs = Object.keys(row.jobs)
+                  .map(function (jn) {
+                    return esc(jn) + " " + formatHours(row.jobs[jn]);
+                  })
+                  .join(" · ");
+                html +=
+                  '<div class="cc-row"><div><div class="cc-code">' +
+                  esc(cc) +
+                  '</div><div class="cc-detail">' +
+                  jobs +
+                  '</div></div><div class="cc-hrs">' +
+                  formatHours(row.ms) +
+                  ' <span style="font-size:.75rem;font-weight:500;color:var(--ink-soft)">(' +
+                  formatHoursDec(row.ms) +
+                  "h)</span></div></div>";
+              });
+            html +=
+              '<div class="total-line"><span>Total</span><span>' +
+              formatHours(p.totalMs) +
+              " · " +
+              formatHoursDec(p.totalMs) +
+              "h</span></div></div>";
+          });
+          html += "</div>";
+        }
+      } else {
+        var centers = d.workCenters || [];
+        var byCenter = {};
+        centers.forEach(function (c) {
+          byCenter[c.id] = { name: c.name, hrs: 0, jobs: 0 };
+        });
+        open.forEach(function (o) {
+          var id = o.workCenterId || "_";
+          if (!byCenter[id]) byCenter[id] = { name: id, hrs: 0, jobs: 0 };
+          byCenter[id].hrs += num(o.remainingHours, 0);
+          byCenter[id].jobs += 1;
+        });
+
+        html +=
+          '<div class="kpis">' +
+          '<div class="kpi"><div class="label">Open jobs</div><div class="value">' +
+          open.length +
+          "</div></div>" +
+          '<div class="kpi"><div class="label">Hours remaining</div><div class="value">' +
+          Math.round(remHrs) +
+          "</div></div>" +
+          '<div class="kpi"><div class="label">Time sessions</div><div class="value">' +
+          allEntries.length +
+          "</div></div></div>";
+
+        html +=
+          '<div class="card"><h3 style="margin:0 0 .75rem">Load by work center</h3>' +
+          "<table><thead><tr><th>Work center</th><th>Open jobs</th><th>Hours rem</th></tr></thead><tbody>";
+        html +=
+          Object.values(byCenter)
+            .sort(function (a, b) {
+              return b.hrs - a.hrs;
+            })
+            .map(function (c) {
+              return (
+                "<tr><td>" +
+                esc(c.name) +
+                "</td><td>" +
+                c.jobs +
+                "</td><td>" +
+                Math.round(c.hrs * 10) / 10 +
+                "</td></tr>"
+              );
+            })
+            .join("") || '<tr><td colspan="3">No data</td></tr>';
+        html += "</tbody></table></div>";
+      }
+
+      document.getElementById("main").innerHTML = html;
+    } catch (err) {
+      document.getElementById("main").innerHTML =
+        '<div class="err">Analytics error: ' +
+        esc(err && err.message ? err.message : String(err)) +
+        "</div>";
+    }
+  }
+
+  document.addEventListener("click", function (e) {
+    var r = e.target.closest("[data-range]");
+    if (r) {
+      state.range = r.getAttribute("data-range");
+      render();
+      return;
+    }
+    var v = e.target.closest("[data-view]");
+    if (v) {
+      state.view = v.getAttribute("data-view");
+      render();
+    }
+  });
+
+  render();
 })();
 </script>
 </body>
