@@ -1,5 +1,6 @@
 /**
  * Browser persistence: localStorage plus JSON import/export.
+ * Preserves suite fields (charge codes, travelers, WIs, timeEntries).
  */
 (function (root) {
   const STORAGE_KEY = "capacity-tracker.v1";
@@ -34,7 +35,13 @@
       workCenters: [],
       people: [],
       workOrders: [],
-      absences: []
+      absences: [],
+      travelers: [],
+      assemblies: [],
+      cableOps: [],
+      assemblyOps: [],
+      timeEntries: [],
+      downtime: []
     };
   }
 
@@ -47,9 +54,7 @@
   function storageGet(key) {
     try {
       if (typeof localStorage !== "undefined") return localStorage.getItem(key);
-    } catch (err) {
-      /* iframe or locked-down SharePoint can block storage */
-    }
+    } catch (err) {}
     return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
   }
 
@@ -59,9 +64,7 @@
         localStorage.setItem(key, text);
         return;
       }
-    } catch (err) {
-      /* fall through to memory */
-    }
+    } catch (err) {}
     memoryStore[key] = text;
   }
 
@@ -107,6 +110,13 @@
     data.workOrders = Array.isArray(raw.workOrders) ? raw.workOrders.map(normalizeOrder) : [];
     data.absences = Array.isArray(raw.absences) ? raw.absences.map(normalizeAbsence) : [];
     data.updatedAt = Number(raw.updatedAt) || 0;
+    // Suite extras — never drop these on Capacity Tracker save
+    if (Array.isArray(raw.travelers)) data.travelers = raw.travelers;
+    if (Array.isArray(raw.assemblies)) data.assemblies = raw.assemblies;
+    if (Array.isArray(raw.cableOps)) data.cableOps = raw.cableOps;
+    if (Array.isArray(raw.assemblyOps)) data.assemblyOps = raw.assemblyOps;
+    if (Array.isArray(raw.timeEntries)) data.timeEntries = raw.timeEntries;
+    if (Array.isArray(raw.downtime)) data.downtime = raw.downtime;
     return data;
   }
 
@@ -120,13 +130,14 @@
       id: String(item.id || uid("wc")),
       name: String(item.name || "Untitled work center"),
       notes: String(item.notes || ""),
-      color: normalizeColor(item.color)
+      color: normalizeColor(item.color),
+      kind: String(item.kind || "")
     };
   }
 
   function normalizePerson(item) {
     const workDays = Number(item.workDays);
-    return {
+    const out = {
       id: String(item.id || uid("p")),
       name: String(item.name || "Unnamed"),
       workCenterId: item.workCenterId ? String(item.workCenterId) : "",
@@ -134,8 +145,13 @@
       workDays: workDays >= 1 && workDays <= 7 ? workDays : 5,
       worksWeekends: Boolean(item.worksWeekends),
       efficiency: item.efficiency == null || item.efficiency === "" ? 100 : Number(item.efficiency),
-      notes: String(item.notes || "")
+      notes: String(item.notes || ""),
+      role: String(item.role || "tech")
     };
+    // Keep PIN fields for Work Orders / suite login
+    if (item.pin != null && String(item.pin) !== "") out.pin = String(item.pin);
+    if (item.mustChangePin != null) out.mustChangePin = item.mustChangePin;
+    return out;
   }
 
   function normalizeAbsenceType(value) {
@@ -163,7 +179,7 @@
   }
 
   function normalizeOrder(item) {
-    return {
+    const out = {
       id: String(item.id || uid("wo")),
       number: String(item.number || ""),
       title: String(item.title || ""),
@@ -176,8 +192,27 @@
       dueDate: item.dueDate ? String(item.dueDate).slice(0, 10) : "",
       status: normalizeStatus(item.status),
       priority: normalizePriority(item.priority),
-      notes: String(item.notes || "")
+      notes: String(item.notes || ""),
+      // Suite / Work Orders fields — must survive Capacity Tracker saves
+      chargeCode: String(item.chargeCode || "").trim(),
+      instructionKind: item.instructionKind ? String(item.instructionKind) : "",
+      productTag: String(item.productTag || ""),
+      assemblyId: item.assemblyId ? String(item.assemblyId) : "",
+      taskNotes: String(item.taskNotes || ""),
+      hoursFromWi: Boolean(item.hoursFromWi),
+      assignedTechId: item.assignedTechId ? String(item.assignedTechId) : "",
+      assignedTechName: String(item.assignedTechName || ""),
+      assignedQaId: item.assignedQaId ? String(item.assignedQaId) : "",
+      assignedQaName: String(item.assignedQaName || "")
     };
+    if (item.travelerProgress != null && item.travelerProgress !== "") {
+      out.travelerProgress = Number(item.travelerProgress);
+    }
+    if (item.currentOp) out.currentOp = String(item.currentOp);
+    if (item.travelerId) out.travelerId = String(item.travelerId);
+    if (item.travelerStatus) out.travelerStatus = String(item.travelerStatus);
+    if (item.hoursLogged != null) out.hoursLogged = Number(item.hoursLogged) || 0;
+    return out;
   }
 
   function normalizeStatus(value) {
@@ -203,12 +238,17 @@
       return normalizeData(readJson(STORAGE_KEY, emptyData()));
     },
     save(data) {
-      const next = normalizeData(data);
+      // Merge with existing storage so suite-only keys are not wiped if caller omitted them
+      const prev = readJson(STORAGE_KEY, emptyData()) || {};
+      const merged = Object.assign({}, prev, data || {});
+      const next = normalizeData(merged);
       writeJson(STORAGE_KEY, next);
       return next;
     },
     clear() {
-      localStorage.removeItem(STORAGE_KEY);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
     }
   };
 
@@ -256,12 +296,17 @@
   }
 
   function addDaysIso(iso, days) {
-    const d = CapacityCalc.parseDate(iso) || new Date();
-    return CapacityCalc.formatISO(CapacityCalc.addDays(d, days));
+    const d = (root.CapacityCalc && CapacityCalc.parseDate(iso)) || new Date();
+    if (root.CapacityCalc) return CapacityCalc.formatISO(CapacityCalc.addDays(d, days));
+    const x = new Date(d);
+    x.setDate(x.getDate() + days);
+    return x.toISOString().slice(0, 10);
   }
 
   function demoData(from) {
-    const today = CapacityCalc.formatISO(from || new Date());
+    const today = root.CapacityCalc
+      ? CapacityCalc.formatISO(from || new Date())
+      : new Date().toISOString().slice(0, 10);
     const wc = [
       { id: "wc_laser", name: "Laser / Burn", notes: "Table 1 & 2", color: "#1d4e89" },
       { id: "wc_brake", name: "Press Brake", notes: "120-ton", color: "#6b4c9a" },
