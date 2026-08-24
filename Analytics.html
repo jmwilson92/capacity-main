@@ -3,27 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Analytics</title>
+  <title>Analytics · Timecard</title>
   <style>
-:root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--over:#9b2c1a;--over-soft:#f6d9d2;--tight:#9a4d0f;--tight-soft:#f6e3c8;--healthy:#2d6a3a;--healthy-soft:#d7ead9;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
+:root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--card-2:#f7f1e6;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--over:#9b2c1a;--healthy:#2d6a3a;--healthy-soft:#d7ead9;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
 *{box-sizing:border-box}html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px}
 .top{position:sticky;top:0;z-index:20;background:rgba(243,239,230,.95);border-bottom:1px solid var(--rule)}
-.top-row{display:flex;justify-content:space-between;padding:.85rem 1.25rem .35rem}.brand{display:flex;gap:.75rem;align-items:center}
+.top-row{display:flex;justify-content:space-between;padding:.85rem 1.25rem .35rem;align-items:center;gap:1rem;flex-wrap:wrap}
+.brand{display:flex;gap:.75rem;align-items:center}
 .mark{width:36px;height:36px;border-radius:10px;background:var(--accent-ink);color:#f4efe4;display:grid;place-items:center;font-weight:700;font-size:.7rem}
 .brand h1{margin:0;font-size:1.05rem}.brand p{margin:0;color:var(--ink-soft);font-size:.78rem}
 .tabs{display:flex;gap:.1rem;padding:0 1rem .4rem;overflow-x:auto;flex-wrap:wrap}
 .tab{border:0;background:transparent;color:var(--ink-soft);padding:.45rem .7rem;border-radius:999px;text-decoration:none;white-space:nowrap;font-size:.9rem}
 .tab.is-on{background:var(--accent-ink);color:#f6f1e7}
-.wrap{width:min(1100px,100%);margin:0 auto;padding:1.15rem}
+.wrap{width:min(1100px,100%);margin:0 auto;padding:1.15rem 1.15rem 3rem}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
 .kpi{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:.85rem 1rem;box-shadow:var(--shadow)}
 .kpi .label{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.04em}
 .kpi .value{font-size:1.55rem;font-weight:650}
 .card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow);margin-bottom:1rem}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.5rem .4rem;border-bottom:1px solid var(--rule)}
+.person-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.85rem;margin-bottom:1rem}
+.person-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow)}
+.person-card h3{margin:0 0 .15rem;font-size:1.05rem}
+.person-card .sub{color:var(--ink-soft);font-size:.82rem;margin:0 0 .75rem}
+.cc-row{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;padding:.45rem 0;border-bottom:1px solid var(--rule)}
+.cc-row:last-child{border-bottom:0}
+.cc-code{font-weight:650;font-variant-numeric:tabular-nums}
+.cc-hrs{font-size:1.15rem;font-weight:650;font-variant-numeric:tabular-nums;color:var(--accent-ink)}
+.cc-detail{font-size:.78rem;color:var(--ink-soft);margin-top:.15rem}
+.total-line{margin-top:.65rem;padding-top:.55rem;border-top:2px solid var(--accent-ink);display:flex;justify-content:space-between;font-weight:650}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.5rem .4rem;border-bottom:1px solid var(--rule);vertical-align:top}
 th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 .pill{display:inline-flex;border-radius:999px;padding:.1rem .5rem;font-size:.72rem;font-weight:650;background:#eee}
-.btn{border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:.4rem .75rem;text-decoration:none;color:inherit;display:inline-block}
+.pill.open{background:var(--accent-soft);color:var(--accent-ink)}
+.filters{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.field{border:1px solid var(--rule);background:#fff;border-radius:10px;padding:.4rem .65rem}
+.subtabs{display:flex;gap:.35rem;margin-bottom:1rem;flex-wrap:wrap}
+.subtab{border:1px solid var(--rule);background:var(--card);border-radius:999px;padding:.4rem .85rem;cursor:pointer;font:inherit}
+.subtab.is-on{background:var(--accent-ink);color:#f6f1e7;border-color:var(--accent-ink)}
+.empty{text-align:center;padding:1.5rem;color:var(--ink-soft)}
+.btn{border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:.4rem .75rem;cursor:pointer;font:inherit}
 .btn.primary{background:var(--accent-ink);color:#f6f1e7;border-color:var(--accent-ink)}
 @media(max-width:800px){.kpis{grid-template-columns:1fr 1fr}}
   </style>
@@ -31,7 +49,7 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 <body>
 <div class="top">
   <div class="top-row">
-    <div class="brand"><div class="mark">AN</div><div><h1>Analytics</h1><p>Capacity · load · downtime · WI progress</p></div></div>
+    <div class="brand"><div class="mark">AN</div><div><h1>Analytics</h1><p>Timecard · charge codes · capacity</p></div></div>
   </div>
   <div class="tabs" id="tabs"></div>
 </div>
@@ -40,71 +58,186 @@ th{font-size:.72rem;text-transform:uppercase;color:var(--ink-soft)}
 <script>
 (function(){
 const STORAGE_KEY="capacity-tracker.v1";
-function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+const state={ range:"week", view:"timecard" };
+
+function esc(s){return String(s??"").replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">");}
 function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(e){return {};}}
-function utilClass(pct){if(pct==null||isNaN(pct))return "";if(pct>100)return "over";if(pct>=85)return "tight";if(pct>=50)return "ok";return "light";}
+function num(v,f){var n=Number(v);return Number.isFinite(n)?n:(f||0);}
 
-document.getElementById("tabs").innerHTML=(window.SuiteNav&&SuiteNav.html("Analytics"))||"";
+function startOfDay(d){var x=new Date(d);x.setHours(0,0,0,0);return x;}
+function startOfWeek(d){
+  var x=startOfDay(d);
+  var day=x.getDay();
+  var diff=(day===0?-6:1-day);
+  x.setDate(x.getDate()+diff);
+  return x;
+}
+function formatHours(ms){
+  var m=Math.max(0,Math.round(ms/60000));
+  var h=Math.floor(m/60);
+  var r=m%60;
+  if(h===0) return r+"m";
+  return h+":"+String(r).padStart(2,"0");
+}
+function formatHoursDec(ms){
+  return (Math.round((ms/36e5)*100)/100).toFixed(2);
+}
 
-const d=load();
-const wos=d.workOrders||[];
-const centers=d.workCenters||[];
-const people=d.people||[];
-const downtime=d.downtime||[];
-const open=wos.filter(o=>o.status!=="complete");
-const inProg=open.filter(o=>o.status==="in-progress");
-const queued=open.filter(o=>o.status==="queued");
-const hold=open.filter(o=>o.status==="on-hold");
-const remHrs=open.reduce((s,o)=>s+(Number(o.remainingHours)||0),0);
-const assigned=open.filter(o=>o.assignedTechId||o.assignedQaId).length;
-const withWi=open.filter(o=>o.travelerProgress!=null).length;
-const avgWi=withWi?Math.round(open.filter(o=>o.travelerProgress!=null).reduce((s,o)=>s+Number(o.travelerProgress),0)/withWi):0;
-const openDt=downtime.filter(x=>!x.endedAt&&!x.end).length;
-const productTime=d.timeByProduct||{};
+function rangeBounds(){
+  var now=new Date();
+  if(state.range==="today"){
+    var s=startOfDay(now);
+    return {start:s.getTime(), end:s.getTime()+86400000, label:"Today"};
+  }
+  if(state.range==="lastweek"){
+    var ws=startOfWeek(now);
+    var start=new Date(ws); start.setDate(start.getDate()-7);
+    return {start:start.getTime(), end:ws.getTime(), label:"Last week"};
+  }
+  if(state.range==="all"){
+    return {start:0, end:Infinity, label:"All time"};
+  }
+  var w=startOfWeek(now);
+  return {start:w.getTime(), end:w.getTime()+7*86400000, label:"This week"};
+}
 
-// rough center load from remaining hours
-const byCenter={};
-centers.forEach(c=>{byCenter[c.id]={name:c.name,hrs:0,jobs:0};});
-open.forEach(o=>{
-  const id=o.workCenterId||"_";
-  if(!byCenter[id])byCenter[id]={name:id,hrs:0,jobs:0};
-  byCenter[id].hrs+=Number(o.remainingHours)||0;
-  byCenter[id].jobs+=1;
+function entriesInRange(entries){
+  var b=rangeBounds();
+  return (entries||[]).filter(function(e){
+    var t=e.endedAt?new Date(e.endedAt).getTime():(e.startedAt?new Date(e.startedAt).getTime():0);
+    return t>=b.start && t<b.end;
+  });
+}
+
+function buildPersonCards(entries){
+  var byPerson={};
+  entries.forEach(function(e){
+    var pid=String(e.personId||e.personName||"unknown");
+    if(!byPerson[pid]) byPerson[pid]={personId:pid, name:e.personName||"Unknown", byCode:{}, totalMs:0, rows:[]};
+    var p=byPerson[pid];
+    var cc=String(e.chargeCode||"UNASSIGNED").trim()||"UNASSIGNED";
+    if(!p.byCode[cc]) p.byCode[cc]={ms:0, jobs:{}};
+    p.byCode[cc].ms += num(e.durationMs,0);
+    var jn=e.workOrderNumber||e.workOrderId||"?";
+    p.byCode[cc].jobs[jn]=(p.byCode[cc].jobs[jn]||0)+num(e.durationMs,0);
+    p.totalMs += num(e.durationMs,0);
+    p.rows.push(e);
+  });
+  return Object.values(byPerson).sort(function(a,b){return b.totalMs-a.totalMs;});
+}
+
+function render(){
+  document.getElementById("tabs").innerHTML=(window.SuiteNav&&SuiteNav.html("Analytics"))||"";
+  var d=load();
+  var allEntries=d.timeEntries||[];
+  var entries=entriesInRange(allEntries);
+  var people=buildPersonCards(entries);
+  var wos=d.workOrders||[];
+  var open=wos.filter(function(o){return o.status!=="complete";});
+  var remHrs=open.reduce(function(s,o){return s+num(o.remainingHours,0);},0);
+  var totalMs=entries.reduce(function(s,e){return s+num(e.durationMs,0);},0);
+  var bounds=rangeBounds();
+
+  var missingCc=open.filter(function(o){return !o.chargeCode;}).length;
+
+  var html='';
+  html+='<div class="page-head" style="margin-bottom:1rem"><h2 style="margin:0">Timecard · charge codes</h2>';
+  html+='<p style="margin:.25rem 0 0;color:var(--ink-soft);font-size:.9rem">Minutes rack up while a traveler is open (Check in → Exit). Grouped by person and charge code for timesheets.</p></div>';
+
+  html+='<div class="subtabs">';
+  html+='<button type="button" class="subtab '+(state.view==="timecard"?"is-on":"")+'" data-view="timecard">Timecard</button>';
+  html+='<button type="button" class="subtab '+(state.view==="capacity"?"is-on":"")+'" data-view="capacity">Capacity snapshot</button>';
+  html+='</div>';
+
+  if(state.view==="timecard"){
+    html+='<div class="filters">';
+    ["today","week","lastweek","all"].forEach(function(r){
+      var labels={today:"Today",week:"This week",lastweek:"Last week",all:"All time"};
+      html+='<button type="button" class="subtab '+(state.range===r?"is-on":"")+'" data-range="'+r+'">'+labels[r]+'</button>';
+    });
+    html+='<span style="color:var(--ink-soft);font-size:.85rem">'+esc(bounds.label)+' · '+entries.length+' sessions</span>';
+    html+='</div>';
+
+    html+='<div class="kpis">';
+    html+='<div class="kpi"><div class="label">Logged time</div><div class="value">'+formatHours(totalMs)+'</div></div>';
+    html+='<div class="kpi"><div class="label">Decimal hours</div><div class="value">'+formatHoursDec(totalMs)+'</div></div>';
+    html+='<div class="kpi"><div class="label">People</div><div class="value">'+people.length+'</div></div>';
+    html+='<div class="kpi"><div class="label">Open WOs missing charge code</div><div class="value">'+missingCc+'</div></div>';
+    html+='</div>';
+
+    if(!people.length){
+      html+='<div class="card empty">No time logged in this range yet.<br><br>Check in on a work order in <b>Work Orders</b>. Time records when you Exit or Mark complete.<br>Assign a <b>charge code</b> on the WI type dialog.</div>';
+    } else {
+      html+='<div class="person-grid">';
+      people.forEach(function(p){
+        html+='<div class="person-card">';
+        html+='<h3>'+esc(p.name)+'</h3>';
+        html+='<p class="sub">Use these hours on your timecard</p>';
+        var codes=Object.keys(p.byCode).sort();
+        codes.forEach(function(cc){
+          var row=p.byCode[cc];
+          var jobs=Object.keys(row.jobs).map(function(jn){
+            return esc(jn)+' '+formatHours(row.jobs[jn]);
+          }).join(' · ');
+          html+='<div class="cc-row"><div><div class="cc-code">'+esc(cc)+'</div>';
+          html+='<div class="cc-detail">'+jobs+'</div></div>';
+          html+='<div class="cc-hrs">'+formatHours(row.ms)+' <span style="font-size:.75rem;font-weight:500;color:var(--ink-soft)">('+formatHoursDec(row.ms)+'h)</span></div></div>';
+        });
+        html+='<div class="total-line"><span>Total</span><span>'+formatHours(p.totalMs)+' · '+formatHoursDec(p.totalMs)+'h</span></div>';
+        html+='</div>';
+      });
+      html+='</div>';
+
+      html+='<div class="card"><h3 style="margin:0 0 .75rem">Session detail</h3>';
+      html+='<div style="overflow-x:auto"><table><thead><tr><th>When</th><th>Person</th><th>Charge code</th><th>Job</th><th>Type</th><th>Time</th></tr></thead><tbody>';
+      entries.slice().sort(function(a,b){return String(b.endedAt||"").localeCompare(String(a.endedAt||""));}).forEach(function(e){
+        var when=e.endedAt?new Date(e.endedAt).toLocaleString():"—";
+        html+='<tr><td style="font-size:.82rem;white-space:nowrap">'+esc(when)+'</td>';
+        html+='<td>'+esc(e.personName||"")+'</td>';
+        html+='<td><span class="pill open">'+esc(e.chargeCode||"UNASSIGNED")+'</span></td>';
+        html+='<td><b>'+esc(e.workOrderNumber||"")+'</b></td>';
+        html+='<td>'+esc(e.productTag||e.instructionKind||"")+'</td>';
+        html+='<td>'+formatHours(e.durationMs)+'</td></tr>';
+      });
+      html+='</tbody></table></div></div>';
+    }
+  } else {
+    var centers=d.workCenters||[];
+    var downtime=d.downtime||[];
+    var byCenter={};
+    centers.forEach(function(c){byCenter[c.id]={name:c.name,hrs:0,jobs:0};});
+    open.forEach(function(o){
+      var id=o.workCenterId||"_";
+      if(!byCenter[id]) byCenter[id]={name:id,hrs:0,jobs:0};
+      byCenter[id].hrs+=num(o.remainingHours,0);
+      byCenter[id].jobs+=1;
+    });
+    html+='<div class="kpis">';
+    html+='<div class="kpi"><div class="label">Open jobs</div><div class="value">'+open.length+'</div></div>';
+    html+='<div class="kpi"><div class="label">Hours remaining</div><div class="value">'+Math.round(remHrs)+'</div></div>';
+    html+='<div class="kpi"><div class="label">Open downtime</div><div class="value">'+downtime.filter(function(x){return !x.endedAt&&!x.end;}).length+'</div></div>';
+    html+='<div class="kpi"><div class="label">Time sessions (all)</div><div class="value">'+allEntries.length+'</div></div>';
+    html+='</div>';
+    html+='<div class="card"><h3 style="margin:0 0 .75rem">Load by work center</h3>';
+    html+='<table><thead><tr><th>Work center</th><th>Open jobs</th><th>Hours rem</th></tr></thead><tbody>';
+    html+=Object.values(byCenter).sort(function(a,b){return b.hrs-a.hrs;}).map(function(c){
+      return '<tr><td>'+esc(c.name)+'</td><td>'+c.jobs+'</td><td>'+Math.round(c.hrs*10)/10+'</td></tr>';
+    }).join("")||'<tr><td colspan="3">No data</td></tr>';
+    html+='</tbody></table>';
+    html+='<p style="margin:1rem 0 0;color:var(--ink-soft);font-size:.88rem">Week planning: <a href="CapacityTracker.html#planning">Planning</a></p></div>';
+  }
+
+  document.getElementById("main").innerHTML=html;
+}
+
+document.addEventListener("click",function(e){
+  var r=e.target.closest("[data-range]");
+  if(r){ state.range=r.getAttribute("data-range"); render(); return; }
+  var v=e.target.closest("[data-view]");
+  if(v){ state.view=v.getAttribute("data-view"); render(); return; }
 });
 
-document.getElementById("main").innerHTML=`
-  <div class="kpis">
-    <div class="kpi"><div class="label">Open jobs</div><div class="value">${open.length}</div></div>
-    <div class="kpi"><div class="label">In progress</div><div class="value">${inProg.length}</div></div>
-    <div class="kpi"><div class="label">Hours remaining</div><div class="value">${Math.round(remHrs)}</div></div>
-    <div class="kpi"><div class="label">Avg WI progress</div><div class="value">${avgWi}%</div></div>
-  </div>
-  <div class="kpis">
-    <div class="kpi"><div class="label">Queued</div><div class="value">${queued.length}</div></div>
-    <div class="kpi"><div class="label">On hold</div><div class="value">${hold.length}</div></div>
-    <div class="kpi"><div class="label">Assigned</div><div class="value">${assigned}/${open.length||1}</div></div>
-    <div class="kpi"><div class="label">Open downtime</div><div class="value">${openDt}</div></div>
-  </div>
-  <div class="card">
-    <h3 style="margin:0 0 .75rem">Load by work center (open remaining hours)</h3>
-    <table><thead><tr><th>Work center</th><th>Open jobs</th><th>Hours rem</th></tr></thead>
-    <tbody>${Object.values(byCenter).sort((a,b)=>b.hrs-a.hrs).map(c=>`<tr>
-      <td>${esc(c.name)}</td><td>${c.jobs}</td><td>${Math.round(c.hrs*10)/10}</td></tr>`).join("")||"<tr><td colspan=3>No data</td></tr>"}
-    </tbody></table>
-    <p style="margin:1rem 0 0;color:var(--ink-soft);font-size:.88rem">Detailed week-by-week capacity is on <a href="CapacityTracker.html#planning">Planning</a>.</p>
-  </div>
-  <div class="card">
-    <h3 style="margin:0 0 .75rem">Time logged by product (WI timers)</h3>
-    ${!Object.keys(productTime).length?'<p style="color:var(--ink-soft)">No WI time logged yet.</p>':`
-    <table><thead><tr><th>Product</th><th>Minutes</th></tr></thead>
-    <tbody>${Object.entries(productTime).sort((a,b)=>b[1]-a[1]).map(([k,ms])=>`<tr><td>${esc(k)}</td><td>${Math.round(ms/60000)}</td></tr>`).join("")}</tbody></table>`}
-  </div>
-  <div class="card">
-    <h3 style="margin:0 0 .5rem">Downtime</h3>
-    <p style="color:var(--ink-soft);margin:0 0 .75rem">${openDt} open event(s) · ${downtime.length} total logged</p>
-    <a class="btn primary" href="DowntimeLogger.html">Open downtime logger</a>
-  </div>
-`;
+render();
 })();
 </script>
 </body>
