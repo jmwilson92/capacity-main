@@ -5,52 +5,157 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Settings</title>
   <style>
-:root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
+:root{--paper:#f3efe6;--ink:#1b1814;--ink-soft:#5c564c;--rule:#d4cbb8;--card:#fffcf6;--accent-ink:#0e3d3a;--accent-soft:#d5ebe8;--over:#9b2c1a;--shadow:0 1px 0 rgba(27,24,20,.06),0 12px 28px rgba(27,24,20,.08);--radius:14px;--sans:"Segoe UI",system-ui,sans-serif}
 *{box-sizing:border-box}html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px}
 .top{position:sticky;top:0;z-index:20;background:rgba(243,239,230,.95);border-bottom:1px solid var(--rule)}
-.top-row{display:flex;justify-content:space-between;padding:.85rem 1.25rem .35rem}.brand{display:flex;gap:.75rem;align-items:center}
+.top-row{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1.25rem .35rem;gap:1rem;flex-wrap:wrap}
+.brand{display:flex;gap:.75rem;align-items:center}
 .mark{width:36px;height:36px;border-radius:10px;background:var(--accent-ink);color:#f4efe4;display:grid;place-items:center;font-weight:700;font-size:.75rem}
 .brand h1{margin:0;font-size:1.05rem}.brand p{margin:0;color:var(--ink-soft);font-size:.78rem}
 .tabs{display:flex;gap:.1rem;padding:0 1rem .4rem;overflow-x:auto;flex-wrap:wrap}
 .tab{border:0;background:transparent;color:var(--ink-soft);padding:.45rem .7rem;border-radius:999px;text-decoration:none;white-space:nowrap;font-size:.9rem}
 .tab.is-on{background:var(--accent-ink);color:#f6f1e7}.tab:hover{background:rgba(27,24,20,.05)}
-.wrap{width:min(900px,100%);margin:0 auto;padding:1.25rem 1.15rem 3rem}
+.wrap{width:min(960px,100%);margin:0 auto;padding:1.25rem 1.15rem 3rem}
 h2{margin:0 0 .35rem}.lede{color:var(--ink-soft);margin:0 0 1.25rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.85rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.85rem;margin-bottom:1.5rem}
 .card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem;text-decoration:none;color:inherit;display:block}
 .card:hover{border-color:#b9ae97}.card h3{margin:0 0 .35rem;font-size:1.05rem}.card p{margin:0;color:var(--ink-soft);font-size:.88rem}
+.btn{border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:.4rem .75rem;cursor:pointer;font:inherit}
+.btn.primary{background:var(--accent-ink);color:#f6f1e7;border-color:var(--accent-ink)}
+.btn.danger{color:var(--over)}.btn.small{padding:.25rem .5rem;font-size:.82rem}
+.field{border:1px solid var(--rule);background:#fff;border-radius:10px;padding:.4rem .65rem;width:100%;font:inherit}
+.wc-list{display:flex;flex-direction:column;gap:.55rem}
+.wc-row{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.75rem .85rem;background:var(--card);border:1px solid var(--rule);border-radius:12px;flex-wrap:wrap}
+.wc-row .dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:.4rem;vertical-align:middle}
+label{display:flex;flex-direction:column;gap:.25rem;font-size:.8rem;font-weight:650;color:var(--ink-soft)}
+.form-grid{display:grid;gap:.65rem;grid-template-columns:1fr 1fr;margin:1rem 0}
+.form-grid .span-2{grid-column:1/-1}
+dialog{border:0;padding:0;background:transparent}dialog::backdrop{background:rgba(27,24,20,.45)}
+.modal-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);padding:1.15rem;width:min(440px,94vw);box-shadow:var(--shadow)}
+.toasts{position:fixed;right:1rem;bottom:1rem;z-index:40}.toast{background:var(--accent-ink);color:#f6f1e7;padding:.65rem .8rem;border-radius:10px;margin-top:.4rem}
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
   </style>
 </head>
 <body>
 <div class="top">
   <div class="top-row">
-    <div class="brand"><div class="mark">SET</div><div><h1>Settings</h1><p>Permissions · people · skills · admin</p></div></div>
+    <div class="brand"><div class="mark">SET</div><div><h1>Settings</h1><p>Work centers · people · admin</p></div></div>
+    <div id="suite-auth-host"></div>
   </div>
   <div class="tabs" id="tabs"></div>
 </div>
-<div class="wrap">
-  <h2>Settings</h2>
-  <p class="lede">Employees, skills, and permission (PIN) users live here — not on the main shop nav.</p>
-  <div class="grid">
-    <a class="card" href="CapacityTracker.html#people">
-      <h3>Employees / roster</h3>
-      <p>People, hours, absences — managed in Capacity Tracker roster view.</p>
-    </a>
-    <a class="card" href="SkillsMatrix.html">
-      <h3>Skills matrix</h3>
-      <p>Who is trained on which operations and skill levels.</p>
-    </a>
-    <a class="card" href="CapacityTracker.html#people">
-      <h3>Employee PINs</h3>
-      <p>Set or reset each employee’s PIN on their roster file. PIN is never shown after save.</p>
-    </a>
-    <a class="card" href="CapacityTracker.html#settings">
-      <h3>Capacity settings</h3>
-      <p>Planning horizon, load mode, weekends, import/export.</p>
-    </a>
-  </div>
-</div>
+<div class="wrap" id="main">Loading…</div>
+<div class="toasts" id="toasts"></div>
+<dialog id="modal"></dialog>
 <script src="nav.js"></script>
-<script>document.getElementById("tabs").innerHTML=(window.SuiteNav&&SuiteNav.html("Settings"))||"";</script>
+<script>
+(function(){
+var STORAGE_KEY="capacity-tracker.v1";
+var COLORS=["#1f6f6a","#1d4e89","#8a3b12","#6b4c9a","#3d5a40","#9a3412","#0f4c5c","#7a2f4b"];
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(ch){if(ch==="&")return"\x26amp;";if(ch==="<")return"\x26lt;";if(ch===">")return"\x26gt;";if(ch==="\"")return"\x26quot;";return"\x26#39;";});}
+function uid(p){return p+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);}
+function toast(m){var el=document.createElement("div");el.className="toast";el.textContent=m;document.getElementById("toasts").appendChild(el);setTimeout(function(){el.remove();},2800);}
+function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(e){return {};}}
+function save(data){data.updatedAt=Date.now();localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
+
+function render(){
+  document.getElementById("tabs").innerHTML=(window.SuiteNav&&SuiteNav.html("Settings"))||"";
+  if(window.SuiteNav)SuiteNav.paintAuth();
+  var d=load();
+  var centers=d.workCenters||[];
+  var html="";
+  html+='<div class="page-head"><div><h2>Work centers</h2><p class="lede">Create Ordering, Kitting, QA, production cells here. These feed capacity and Work Orders.</p></div>';
+  html+='<button type="button" class="btn primary" data-action="new-wc">New work center</button></div>';
+  if(!centers.length){
+    html+='<div class="card" style="margin-bottom:1.25rem"><p style="margin:0;color:var(--ink-soft)">No work centers yet. Add <b>Ordering</b> (1h, 6 weeks before kitting), <b>Kitting</b> (1h/kit, 3 days before start), <b>QA</b>, and your production cells.</p></div>';
+  } else {
+    html+='<div class="wc-list" style="margin-bottom:1.5rem">';
+    centers.forEach(function(c){
+      html+='<div class="wc-row"><div><span class="dot" style="background:'+esc(c.color||"#1f6f6a")+'"></span><b>'+esc(c.name)+'</b>';
+      if(c.kind)html+=' <span style="color:var(--ink-soft);font-size:.85rem">· '+esc(c.kind)+'</span>';
+      if(c.notes)html+='<div style="font-size:.82rem;color:var(--ink-soft);margin-top:.2rem">'+esc(c.notes)+'</div>';
+      html+='</div><div style="display:flex;gap:.35rem"><button type="button" class="btn small" data-action="edit-wc" data-id="'+esc(c.id)+'">Edit</button>';
+      html+='<button type="button" class="btn small danger" data-action="del-wc" data-id="'+esc(c.id)+'">Delete</button></div></div>';
+    });
+    html+='</div>';
+  }
+  html+='<h2 style="margin-top:1.5rem">Other settings</h2><p class="lede">Roster, PINs, and capacity options.</p><div class="grid">';
+  html+='<a class="card" href="CapacityTracker.html#people"><h3>Employees / roster</h3><p>People, hours, absences, assign to a work center.</p></a>';
+  html+='<a class="card" href="SkillsMatrix.html"><h3>Skills matrix</h3><p>Who is trained on which operations.</p></a>';
+  html+='<a class="card" href="CapacityTracker.html#people"><h3>Employee PINs</h3><p>Set or reset PIN on the roster. Default 1111 until they change it.</p></a>';
+  html+='<a class="card" href="CapacityTracker.html#settings"><h3>Capacity settings</h3><p>Planning horizon, load mode, import/export.</p></a>';
+  html+='</div>';
+  document.getElementById("main").innerHTML=html;
+}
+
+function openForm(id){
+  var d=load();
+  var centers=d.workCenters||[];
+  var existing=id?centers.find(function(c){return String(c.id)===String(id);}):null;
+  var c=existing||{name:"",notes:"",color:COLORS[centers.length%COLORS.length],kind:""};
+  var dlg=document.getElementById("modal");
+  dlg.innerHTML='<form class="modal-card" data-form="wc" data-id="'+esc(existing?existing.id:"")+'">'+'
+    '<h3 style="margin:0">'+(existing?"Edit work center":"New work center")+'</h3>'+
+    '<div class="form-grid">'+
+    '<label class="span-2">Name<input class="field" name="name" required value="'+esc(c.name)+'" placeholder="e.g. Ordering, Kitting, QA, Crimp"></label>'+
+    '<label>Kind (optional)<select class="field" name="kind">'+
+    '<option value=""'+(c.kind===""?" selected":"")+'>General / production</option>'+
+    '<option value="ordering"'+(c.kind==="ordering"?" selected":"")+'>Ordering</option>'+
+    '<option value="kitting"'+(c.kind==="kitting"?" selected":"")+'>Kitting</option>'+
+    '<option value="qa"'+(c.kind==="qa"?" selected":"")+'>QA</option>'+
+    '</select></label>'+
+    '<label>Color<input class="field" type="color" name="color" value="'+esc(c.color||"#1f6f6a")+'"></label>'+
+    '<label class="span-2">Notes<textarea class="field" name="notes" rows="2">'+esc(c.notes||"")+'</textarea></label>'+
+    '</div>'+
+    '<div style="display:flex;justify-content:space-between;gap:.5rem;margin-top:.5rem">'+
+    '<button type="button" class="btn" data-action="close">Cancel</button>'+
+    '<button type="submit" class="btn primary">Save</button></div></form>';
+  dlg.showModal();
+}
+
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-action]");if(!b)return;
+  var a=b.getAttribute("data-action");
+  if(a==="new-wc")openForm("");
+  if(a==="edit-wc")openForm(b.getAttribute("data-id"));
+  if(a==="close"){var m=document.getElementById("modal");if(m)m.close();}
+  if(a==="del-wc"){
+    if(!confirm("Delete this work center? People and jobs assigned to it will be unassigned."))return;
+    var id=b.getAttribute("data-id");
+    var d=load();
+    d.workCenters=(d.workCenters||[]).filter(function(c){return String(c.id)!==String(id);});
+    (d.people||[]).forEach(function(p){if(String(p.workCenterId)===String(id))p.workCenterId="";});
+    (d.workOrders||[]).forEach(function(o){if(String(o.workCenterId)===String(id))o.workCenterId="";});
+    save(d);toast("Work center deleted");render();
+  }
+});
+
+document.addEventListener("submit",function(e){
+  var form=e.target.closest("[data-form=wc]");if(!form)return;
+  e.preventDefault();
+  var fd=new FormData(form);
+  var id=form.getAttribute("data-id")||"";
+  var d=load();
+  if(!d.workCenters)d.workCenters=[];
+  var record={
+    id:id||uid("wc"),
+    name:String(fd.get("name")||"").trim()||"Untitled",
+    kind:String(fd.get("kind")||""),
+    color:String(fd.get("color")||"#1f6f6a"),
+    notes:String(fd.get("notes")||"")
+  };
+  var idx=d.workCenters.findIndex(function(c){return String(c.id)===String(record.id);});
+  if(idx>=0)d.workCenters[idx]=Object.assign({},d.workCenters[idx],record);
+  else d.workCenters.push(record);
+  save(d);
+  document.getElementById("modal").close();
+  toast(id?"Work center updated":"Work center created");
+  render();
+});
+
+render();
+})();
+</script>
 </body>
 </html>
