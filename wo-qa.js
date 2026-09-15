@@ -43,42 +43,48 @@
 
   function complexitySelectHtml(current) {
     var cur = String(current || "medium").toLowerCase();
+    var html = '<label style="margin:.75rem 0">Complexity (output score)';
+    html += '<select class="field" name="complexity" data-bind-tag="complexity">';
     var opts = [
-      { v: "easy", t: "Easy" },
-      { v: "medium", t: "Medium" },
-      { v: "hard", t: "Hard" }
+      ["easy", "Easy"],
+      ["medium", "Medium"],
+      ["hard", "Hard"]
     ];
-    return (
-      '<label style="margin:.75rem 0">Complexity (output score)' +
-      '<select class="field" name="complexity" data-bind-tag="complexity">' +
-      opts
-        .map(function (o) {
-          return (
-            '<option value="' +
-            o.v +
-            '"' +
-            (cur === o.v ? " selected" : "") +
-            ">" +
-            o.t +
-            "</option>"
-          );
-        })
-        .join("") +
-      "</select></label>"
-    );
+    for (var i = 0; i < opts.length; i++) {
+      html +=
+        '<option value="' +
+        opts[i][0] +
+        '"' +
+        (cur === opts[i][0] ? " selected" : "") +
+        ">" +
+        opts[i][1] +
+        "</option>";
+    }
+    html += "</select></label>";
+    return html;
   }
 
   function ncFormHtml(opName) {
-    var cats = NC_CATEGORIES.map(function (c) {
-      return '<option value="' + c.id + '">' + c.label + "</option>";
-    }).join("");
+    var cats = "";
+    for (var i = 0; i < NC_CATEGORIES.length; i++) {
+      cats +=
+        '<option value="' +
+        NC_CATEGORIES[i].id +
+        '">' +
+        NC_CATEGORIES[i].label +
+        "</option>";
+    }
     return (
       '<form class="modal-card" data-form="qa-nc">' +
-      "<h3 style="margin:0">Non-compliance</h3>" +
+      "<h3 style=" +
+      '"margin:0"' +
+      ">Non-compliance</h3>" +
       '<p style="color:var(--ink-soft);font-size:.88rem;margin:.35rem 0 .75rem">QA Fail · ' +
       (opName || "Operation") +
       "</p>" +
-      "<label>Category<select class="field" name="category" required>" +
+      "<label>Category<select class=" +
+      '"field"' +
+      ' name="category" required>' +
       '<option value="">Select…</option>' +
       cats +
       "</select></label>" +
